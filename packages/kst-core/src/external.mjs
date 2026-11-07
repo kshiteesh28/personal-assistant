@@ -139,7 +139,7 @@ export function createExternalService({dataDir,environment=process.env,fetchImpl
       catch{finish(new Fault('BROWSER_LAUNCH_FAILED','Could not launch Google Chrome. Check that Chrome is installed.',503));return;}
       timer=setTimeout(()=>{try{child.kill('SIGTERM');}catch{}finish(new Fault('BROWSER_LAUNCH_TIMEOUT','Chrome did not confirm the Incognito launch. Check the app and try again.',504));},10000);
       child.once('error',()=>finish(new Fault('BROWSER_LAUNCH_FAILED','Could not launch Google Chrome. Check that Chrome is installed.',503)));
-      child.once('close',code=>code===0?finish(null,{status:'opened',url,message:'Opened Google Search in a visible Chrome Incognito window. kst does not read or return browser results.'}):finish(new Fault('BROWSER_LAUNCH_FAILED','Chrome Incognito did not open. Check that Google Chrome is installed.',503)));
+      child.once('close',code=>code===0?finish(null,{status:'opened',url,message:'You can read now'}):finish(new Fault('BROWSER_LAUNCH_FAILED','Chrome Incognito did not open. Check that Google Chrome is installed.',503)));
     });
   }
 
