@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@secretary/shared": ["./packages/shared/src/index.ts"],
+      "@secretary/shared/errors": ["./packages/shared/src/errors.ts"],
+      "@secretary/shared/types": ["./packages/shared/src/types.ts"],
+      "@secretary/shared/api": ["./packages/shared/src/api.ts"]
+    }
+  },
+  "include": [
+    "packages/*/src/**/*.ts",
+    "packages/*/src/**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build"
+  ]
+}

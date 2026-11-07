@@ -1,0 +1,27 @@
+{
+  "name": "personal-secretary",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "kst": "node scripts/kst.mjs start",
+    "kst:doctor": "node scripts/kst.mjs doctor",
+    "kst:test": "node scripts/kst.mjs test",
+    "kst:build-mac": "node scripts/kst.mjs build-mac",
+    "kst:package-mac": "node scripts/kst.mjs package-mac",
+    "dev": "concurrently -n server,web -c blue,green \"bun run --cwd packages/server dev\" \"bun run --cwd packages/web dev\"",
+    "server": "bun run --cwd packages/server start",
+    "web": "bun run --cwd packages/web dev",
+    "test": "bun test",
+    "lint": "biome check .",
+    "format": "biome format --write ."
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "chrono-node": "^2.7.5"
+  }
+}

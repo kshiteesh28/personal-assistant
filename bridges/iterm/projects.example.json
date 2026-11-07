@@ -1,0 +1,15 @@
+[
+  {
+    "id": "secretary",
+    "label": "Personal Secretary · reviewed local test fixture",
+    "root": "/Users/kshiteesh/Developer/personal secretary",
+    "recipes": [
+      {
+        "id": "test",
+        "executable": "/Users/kshiteesh/.local/node/bin/node",
+        "args": ["--test", "packages/kst-core/test/terminal.test.mjs"],
+        "timeoutMs": 60000
+      }
+    ]
+  }
+]

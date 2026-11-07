@@ -1,0 +1,11 @@
+{
+  "name": "@secretary/shared",
+  "version": "1.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./errors": "./src/errors.ts",
+    "./types": "./src/types.ts",
+    "./api": "./src/api.ts"
+  }
+}

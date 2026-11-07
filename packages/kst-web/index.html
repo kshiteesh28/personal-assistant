@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#171b18" />
+  <title>kst · Your personal assistant</title>
+  <link rel="icon" href="/kst-logo.png" type="image/png" />
+  <link rel="stylesheet" href="/styles.css" />
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#conversation">Skip to conversation</a>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Primary navigation">
+      <a class="brand" href="#overview" aria-label="kst overview"><img src="/kst-logo.png" alt="" /><span>kst<span class="brand-dot">.</span></span></a>
+      <p class="sidebar-caption">YOUR PERSONAL SPACE</p>
+      <nav>
+        <a href="#overview" class="nav-link"><span aria-hidden="true">◈</span> Overview</a>
+        <a href="#conversation" class="nav-link"><span aria-hidden="true">◌</span> Conversation</a>
+        <a href="#approvals" class="nav-link"><span aria-hidden="true">◇</span> Approvals <span id="approval-count" class="nav-count">0</span></a>
+        <a href="#nudges" class="nav-link"><span aria-hidden="true">↗</span> Nudges</a>
+        <a href="#settings" class="nav-link"><span aria-hidden="true">⚙</span> Preferences</a>
+      </nav>
+      <div class="sidebar-bottom"><span class="status-dot"></span><div>Made for your Mac<small>Local foundation · v0.1</small></div></div>
+    </aside>
+    <main id="overview">
+      <header class="topbar"><span>Personal assistant <span class="muted">/ Overview</span></span><div class="connection-chip" id="connection-chip" role="status"><span class="status-dot"></span>Connecting</div></header>
+      <div class="page-content">
+        <section class="hero" aria-labelledby="hero-title">
+          <div><p class="eyebrow">A LITTLE MORE FOCUS. A LITTLE LESS FRICTION.</p><h1 id="hero-title">Your day, in good hands.</h1><p class="hero-copy">A place to think, stay on track, and make things happen.<br />Your personal assistant, built around you.</p><a class="button primary" href="#conversation">Start a conversation <span aria-hidden="true">↗</span></a></div>
+          <div class="hero-mark" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><img src="/kst-logo.png" alt="" /><span class="mark-caption">STAY AWARE. STAY IN CONTROL.</span></div>
+        </section>
+        <div id="global-error" class="notice error" role="alert" hidden></div>
+        <section id="pairing" class="panel pairing-panel" aria-labelledby="pairing-title"><div><p class="eyebrow">YOUR LOCAL CONNECTION</p><h2 id="pairing-title">Connect this dashboard</h2><p class="section-copy">Paste the token from your private kst development profile. It stays in this page's memory and is cleared when you disconnect or reload.</p></div><form id="pair-form"><label class="sr-only" for="auth-token">Local connection token</label><input id="auth-token" type="password" autocomplete="off" placeholder="Local token" required /><button class="button secondary" type="submit">Connect</button></form><p id="pair-status" class="inline-status" role="status"></p></section>
+        <div id="paired-bar" class="paired-bar" hidden><span>Connected to your local kst profile</span><button id="disconnect-button" class="button quiet" type="button">Disconnect</button></div>
+        <section class="status-grid" aria-label="Assistant capabilities">
+          <article class="status-card"><span class="card-icon sage">◌</span><span class="status-label">Conversation</span><strong>Ready for your words</strong><small>Type here, or say “arise” in the armed Mac app.</small></article>
+          <article class="status-card"><span class="card-icon orange">◇</span><span class="status-label">External services</span><strong>You decide what leaves</strong><small>Every request needs your approval.</small></article>
+          <article class="status-card"><span class="card-icon sage">↗</span><span class="status-label">Proactive nudges</span><strong>A gentle heads-up</strong><small>Enable native activity and notifications for live nudges.</small></article>
+        </section>
+        <div class="workspace-grid">
+          <section id="conversation" class="panel conversation-panel" aria-labelledby="conversation-title">
+            <div class="panel-heading"><div><p class="eyebrow">THINK OUT LOUD</p><h2 id="conversation-title">A conversation with kst</h2></div><button id="stop-button" class="button quiet danger" type="button">Stop</button></div>
+            <div id="messages" class="messages" role="log" aria-label="Conversation" aria-live="polite"></div>
+            <form id="chat-form" class="composer"><label class="sr-only" for="chat-input">Message kst</label><textarea id="chat-input" placeholder="Try ‘help’, ‘add task review API’, or ‘ask codex to inspect tests’…" rows="2" maxlength="4000" required></textarea><div class="composer-bottom"><span>Typed interaction · no local LLM</span><button id="send-button" class="button primary" type="submit">Send <span aria-hidden="true">↑</span></button></div></form>
+            <p id="chat-status" class="inline-status" role="status"></p>
+          </section>
+          <section class="panel" aria-labelledby="build-title"><div class="panel-heading"><div><p class="eyebrow">THE FIRST CHAPTER</p><h2 id="build-title">Coming together</h2></div><span class="pill">Foundation</span></div><p class="section-copy">The implementation roadmap. Features are enabled as their checks pass.</p><ol class="milestones"><li><span class="step-number">01</span><div><strong>Local assistant core</strong><p>Conversation, settings, approvals, and recovery.</p></div></li><li><span class="step-number">02</span><div><strong>Native Mac companion</strong><p>Menu bar, Apple speech, and immediate Stop.</p></div></li><li class="pending"><span class="step-number">03</span><div><strong>Voice & laptop context</strong><p>Wake model, microphone, activity observations.</p></div></li><li class="pending"><span class="step-number">04</span><div><strong>Trusted execution</strong><p>iTerm, supervised jobs, and provider adapters.</p></div></li></ol><div class="mini-note">Local changes use a scratch profile. An explicitly configured Personal Secretary connection provides read-only context below.</div></section>
+        </div>
+        <section class="panel" aria-labelledby="work-title"><div class="panel-heading"><div><p class="eyebrow">REAL RESULTS, IN VIEW</p><h2 id="work-title">Local capture & job receipts</h2></div></div><p class="section-copy">Tasks created here and the core's recorded job outcomes. These are separate from your existing Personal Secretary data.</p><div class="work-columns"><div><h3 class="work-label">Tasks</h3><div id="task-list"><p class="empty-state">Connect to see saved tasks.</p></div></div><div><h3 class="work-label">Job receipts</h3><div id="job-list"><p class="empty-state">Connect to see job receipts.</p></div></div></div></section>
+        <section class="panel" aria-labelledby="secretary-title"><div class="panel-heading"><div><p class="eyebrow">YOUR EXISTING WORK</p><h2 id="secretary-title">Personal Secretary context</h2></div><span id="secretary-badge" class="pill muted-pill">Not connected</span></div><p class="section-copy">A read-only view of the source you explicitly enable in the local core. Changes made through this dashboard still belong to its scratch profile.</p><p id="secretary-status" class="source-status" role="status">Connect your local profile to check the shared-data connection.</p><p id="secretary-freshness" class="source-freshness"></p><div class="source-columns"><div><h3 class="work-label">Tasks</h3><div id="secretary-tasks"><p class="empty-state">No source loaded.</p></div></div><div><h3 class="work-label">Calendar</h3><div id="secretary-calendar"><p class="empty-state">No source loaded.</p></div></div><div><h3 class="work-label">Reminders</h3><div id="secretary-reminders"><p class="empty-state">No source loaded.</p></div></div></div><p id="secretary-notes" class="source-freshness"></p></section>
+        <section id="approvals" class="panel" aria-labelledby="approvals-title"><div class="panel-heading"><div><p class="eyebrow">ALWAYS YOUR CALL</p><h2 id="approvals-title">Requests for your approval</h2></div><button class="button quiet" id="refresh-button" type="button">Refresh status</button></div><p class="section-copy">Review the service, prompt and shared context. Approving a configured service starts that request and may incur API charges.</p><div id="approval-list" class="approval-list"><p class="empty-state">No pending requests yet.</p></div></section>
+        <section id="secretary-workspace" class="panel" aria-labelledby="workspace-title">
+          <div class="panel-heading"><div><p class="eyebrow">YOUR SECRETARY</p><h2 id="workspace-title">Calendar, planner & reminders</h2></div><span id="workspace-mode" class="pill muted-pill">Connect to load</span></div>
+          <p id="workspace-status" class="section-copy">Ask by voice in the Mac app, or type the same request here.</p>
+          <div class="quick-actions"><button class="button secondary" type="button" data-command="plan my day">Plan my day</button><button class="button quiet" type="button" data-command="show calendar">Calendar</button><button class="button quiet" type="button" data-command="show timeline">Timeline</button><button class="button quiet" type="button" data-command="show reminders">Reminders</button></div>
+          <div class="source-columns"><div><h3>Meetings & calendar</h3><div id="workspace-calendar"></div></div><div><h3>Reminders</h3><div id="workspace-reminders"></div></div><div><h3>Today's timeline</h3><div id="workspace-timeline"></div></div></div>
+          <h3>Scheduling proposal</h3><div id="workspace-plan" class="section-copy">No proposal loaded.</div>
+          <h3>Notifications</h3><div id="workspace-notifications"></div>
+        </section>
+        <section id="terminal-workspace" class="panel" aria-labelledby="terminal-title">
+          <div class="panel-heading"><div><p class="eyebrow">SUPERVISED WORK</p><h2 id="terminal-title">Terminal jobs</h2></div><button id="terminal-inventory" class="button quiet" type="button">Read iTerm sessions</button></div>
+          <p id="terminal-status" class="section-copy">Vetted project recipes run under explicit ownership. Existing iTerm panes are observed only on request.</p><div id="terminal-recipes"></div><div id="terminal-jobs"></div><pre id="terminal-sessions" class="section-copy"></pre>
+        </section>
+        <section class="panel" aria-labelledby="external-title"><div class="panel-heading"><div><p class="eyebrow">APPROVED EXTERNAL HELP</p><h2 id="external-title">Provider results</h2></div></div><p id="external-services" class="section-copy">Connect to inspect service readiness.</p><div id="external-results"></div></section>
+        <div class="workspace-grid lower-grid">
+          <section id="nudges" class="panel" aria-labelledby="nudges-title"><div class="panel-heading"><div><p class="eyebrow">A TIMELY REMINDER</p><h2 id="nudges-title">Make room for a pause</h2></div><span class="pill">Preview</span></div><p class="section-copy">Try the nudge rules with sample activity. This does not read your screen time or calendar.</p><form id="nudge-form"><div class="field"><label for="active-minutes">Sample active work time</label><div class="range-row"><input id="active-minutes" type="range" min="0" max="120" value="65" /><output id="minutes-value" for="active-minutes">65 min</output></div></div><label class="check-row"><input id="sample-meeting" type="checkbox" /> In a meeting</label><label class="check-row"><input id="sample-locked" type="checkbox" /> Screen locked</label><button class="button secondary" id="nudge-button" type="submit">Preview a nudge <span aria-hidden="true">↗</span></button></form><div id="nudge-result" class="nudge-result" role="status">Quiet by default. Helpful when it matters.</div></section>
+          <section id="settings" class="panel" aria-labelledby="settings-title"><div class="panel-heading"><div><p class="eyebrow">MAKE IT YOURS</p><h2 id="settings-title">A familiar voice</h2></div></div><form id="settings-form"><div class="field"><label for="wake-phrase">Wake phrase</label><input id="wake-phrase" type="text" maxlength="40" value="arise" required autocomplete="off" /><small>Native on-device wake phrase. The Mac app must be armed explicitly.</small></div><div class="preference-row"><div><strong>Apple native voice</strong><small>One system default voice. No extra downloads.</small></div><span class="pill">Native app</span></div><div class="preference-row"><div><strong>Hands-free listening</strong><small>Arm the Mac app to listen locally for your configured phrase.</small></div><span class="pill muted-pill">Native app</span></div><button id="save-settings" class="button secondary" type="submit">Save preference</button><p id="settings-status" class="inline-status" role="status"></p></form></section>
+        </div>
+        <footer><span>kst · built for your pace</span><span>Local first. Permission before external help.</span></footer>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
