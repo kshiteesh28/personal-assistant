@@ -8,6 +8,10 @@
   "scripts": {
     "kst": "node scripts/kst.mjs start",
     "kst:doctor": "node scripts/kst.mjs doctor",
+    "kst:release:check": "node packages/kst-core/native/understanding/release-check.mjs --run-checks",
+    "kst:release:activate": "node packages/kst-core/native/understanding/release-check.mjs --run-checks --activate",
+    "kst:ml:build": "node packages/kst-core/native/understanding/build.mjs",
+    "kst:ml:test": "node --test packages/kst-core/test/understanding/*.test.mjs",
     "kst:test": "node scripts/kst.mjs test",
     "kst:build-mac": "node scripts/kst.mjs build-mac",
     "kst:package-mac": "node scripts/kst.mjs package-mac",
@@ -16,12 +20,13 @@
     "web": "bun run --cwd packages/web dev",
     "test": "bun test",
     "lint": "biome check .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "kst:ml:evaluate": "node packages/kst-core/native/understanding/evaluate-release-corpus.mjs"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
   },
   "dependencies": {
-    "chrono-node": "^2.7.5"
+    "chrono-node": "2.9.0"
   }
 }

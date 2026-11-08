@@ -1,0 +1,14 @@
+import { spawnSync } from 'node:child_process';
+import { dirname,resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { mkdirSync,existsSync,writeFileSync } from 'node:fs';
+import { REGISTRY_HASH } from '../../src/understanding/registry.mjs';
+const here=dirname(fileURLToPath(import.meta.url));
+if(process.platform!=='darwin'||process.arch!=='arm64')throw new Error('Native target requires macOS arm64; JS fallback remains available');
+const include=process.env.KST_NODE_INCLUDE??resolve(dirname(process.execPath),'../include/node');
+if(!existsSync(resolve(include,'node_api.h')))throw new Error(`Node headers missing at ${include}; set KST_NODE_INCLUDE to installed Node 22 headers`);
+mkdirSync(resolve(here,'build'),{recursive:true});
+const flags=['-std=c++17','-O3','-ffp-contract=off','-fno-fast-math','-mmacosx-version-min=14.0','-arch','arm64','-bundle','-undefined','dynamic_lookup','-Wno-deprecated-declarations',`-I${include}`,`-DREGISTRY_HASH_BYTES={${[...REGISTRY_HASH].join(',')}}`,resolve(here,'addon.cc'),'-o',resolve(here,'build/understanding.node')];
+const result=spawnSync('clang++',flags,{stdio:'inherit'});if(result.status!==0)process.exit(result.status??1);
+const compiler=spawnSync('clang++',['--version'],{encoding:'utf8'}).stdout;
+writeFileSync(resolve(here,'build/manifest.json'),JSON.stringify({node:process.version,napi:9,arch:process.arch,platform:process.platform,compiler,flags},null,2));

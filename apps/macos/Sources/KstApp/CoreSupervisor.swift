@@ -29,8 +29,13 @@ final class CoreSupervisor: ObservableObject {
         process.executableURL = URL(fileURLWithPath: node)
         process.arguments = [entry]
         process.currentDirectoryURL = URL(fileURLWithPath: entry).deletingLastPathComponent()
-        let allowed = ["HOME", "LANG", "TMPDIR", "PATH", "KST_DATA_DIR", "KST_TOKEN", "KST_PORT", "KST_SECRETARY_DB", "KST_SECRETARY_WRITE", "KST_PROJECTS_FILE", "KST_OPENAI_MODEL", "KST_OPENAI_API_KEY", "KST_CLAUDE_MODEL", "KST_ANTHROPIC_API_KEY", "KST_CODEX_ENABLED", "KST_CODEX_PATH", "KST_CODEX_PROJECT"]
+        let allowed = ["HOME", "LANG", "TMPDIR", "PATH", "KST_DATA_DIR", "KST_TOKEN", "KST_PORT", "KST_SECRETARY_DB", "KST_SECRETARY_WRITE", "KST_PROJECTS_FILE", "KST_OPENAI_MODEL", "KST_OPENAI_API_KEY", "KST_CLAUDE_MODEL", "KST_ANTHROPIC_API_KEY", "KST_CODEX_ENABLED", "KST_CODEX_PATH", "KST_CODEX_PROJECT", "KST_UNDERSTANDING_MODE", "KST_UNDERSTANDING_ADDON_PATH"]
         process.environment = environment.filter { allowed.contains($0.key) }
+        if environment["KST_UNDERSTANDING_ADDON_PATH"] == nil,
+           let addon = Bundle.main.object(forInfoDictionaryKey: "KSTUnderstandingAddon") as? String,
+           let resources = Bundle.main.resourceURL {
+            process.environment?["KST_UNDERSTANDING_ADDON_PATH"] = resources.appendingPathComponent(addon).path
+        }
         process.standardInput = FileHandle.nullDevice
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
@@ -55,3 +60,4 @@ final class CoreSupervisor: ObservableObject {
         child = nil
     }
 }
+ëŽ

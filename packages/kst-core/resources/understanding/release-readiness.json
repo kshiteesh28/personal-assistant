@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 2,
+  "measuredAt": "2026-11-08T04:59:39.884Z",
+  "seedSHA256": "ee69aa7d468782c8bd9fbb2d8f00b3b0ab4e11179e9cb4ea4b5ee454a3bcdb1b",
+  "sourceSHA256": "4ff026a30cc45390807c2836ea52ea2c3add1e9b59dee4c62e8ba6599d38ec73",
+  "evidence": [
+    {
+      "file": "release-corpus-report.json",
+      "sha256": "1562c65551b0b0463cee1ca7edafa4676701081aec3c345fb7ef58172086cac4"
+    },
+    {
+      "file": "storage-release-report.json",
+      "sha256": "b9d033d36bc22bd45435b9ce79250bb5393dc903a35b61b064f67f36db4a709d"
+    },
+    {
+      "file": "conformance-report.json",
+      "sha256": "98b29a79009f0c2ef9860c75ecdacc64d3946a1e526810970a2c70ffce748997"
+    },
+    {
+      "file": "coordinator-benchmark.json",
+      "sha256": "ee3e062f6742273b64d6ea05faa6e281c5f1a17dff7f96f5d2bd59ec7504070e"
+    },
+    {
+      "file": "evaluation-report.json",
+      "sha256": "6f418688d61b1e9c0e58526523c342924b2a9940d0635b90fd3b19f48d2acd9b"
+    },
+    {
+      "file": "integration-benchmark.json",
+      "sha256": "cf979b4f0669f34ac41aa707ea44b76de297dbc8ef58028b28bd229c6b8ecbd3"
+    },
+    {
+      "file": "regression-report.json",
+      "sha256": "abb50bb0f5a78120b47ad4799b0db47d36687fe571ffe66eec9e2ba5639d9ea7"
+    },
+    {
+      "file": "adaptation-report.json",
+      "sha256": "e564d2f2bf866b715d8d6d05369260ca5479902df4554e7ab024cbb1ce549ce9"
+    }
+  ],
+  "gates": [
+    {
+      "id": "corpus",
+      "passed": false
+    },
+    {
+      "id": "accuracy",
+      "passed": false
+    },
+    {
+      "id": "automatic-policy",
+      "passed": false
+    },
+    {
+      "id": "conformance",
+      "passed": false
+    },
+    {
+      "id": "adaptation",
+      "passed": true
+    },
+    {
+      "id": "storage-privacy",
+      "passed": true
+    },
+    {
+      "id": "voice-parity",
+      "passed": false
+    },
+    {
+      "id": "performance",
+      "passed": true
+    },
+    {
+      "id": "regressions",
+      "passed": false
+    },
+    {
+      "id": "hardware",
+      "passed": false
+    },
+    {
+      "id": "classifier-comparison",
+      "passed": false
+    }
+  ],
+  "activeReleaseApproved": false
+}
+ëŽ

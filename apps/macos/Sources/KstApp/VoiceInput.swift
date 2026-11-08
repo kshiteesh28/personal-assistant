@@ -92,6 +92,7 @@ final class VoiceInput: ObservableObject {
         request.requiresOnDeviceRecognition = true
         request.shouldReportPartialResults = true
         request.taskHint = .confirmation
+        request.contextualStrings = Array(([wakePhrase, "reminder", "calendar", "timeline", "schedule meeting", "plan my day", "search web", "stop", "end conversation"].filter { !$0.isEmpty && $0.utf8.count <= 80 }).prefix(100))
         self.request = request
         partialTranscript = ""
         recognizedText = ""

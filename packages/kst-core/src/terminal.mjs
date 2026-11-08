@@ -249,5 +249,5 @@ export function createTerminalService({ dataDir, projects = [], getCoreURL = () 
     db.close(); dbClosed = true;
     if (ownsService && !unknown) { try { const owner = JSON.parse(readFileSync(join(ownerDirectory, 'owner.json'), 'utf8')); if (owner.nonce === nonce) { unlinkSync(join(ownerDirectory, 'owner.json')); rmdirSync(ownerDirectory); } } catch {} }
   }
-  return { inventory, runRecipe, cancel, openJobInITerm, status: snapshot, close };
+  return { inventory, runRecipe, cancel, openJobInITerm, status: snapshot, lookupRequest:requestId=>{const row=db.prepare('SELECT data FROM terminal_jobs WHERE request_id=?').get(requestId);return row?JSON.parse(row.data):null;}, close };
 }

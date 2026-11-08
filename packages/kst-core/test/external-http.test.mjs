@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Readable} from 'node:stream';
+import {spawn} from 'node:child_process';
 import {mkdtempSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {tmpdir} from 'node:os';
@@ -61,7 +62,7 @@ test('web request opens a visible Chrome Incognito window directly without an ap
   });
   const result=await f.say('web-direct-0001','search web personal assistant','web-session');
   assert.equal(result.status,200);assert.equal(result.data.browser.status,'opened');
-  assert.match(result.data.reply,/visible Chrome Incognito/);
+  assert.equal(result.data.reply,'You can read now');
   assert.equal(launched.binary,'/usr/bin/open');
   assert.deepEqual(launched.args,['-na','Google Chrome','--args','--incognito','--new-window','https://www.google.com/search?q=personal%20assistant']);
   assert.equal(f.engine.status().approvals.length,0);assert.equal(f.calls(),0);

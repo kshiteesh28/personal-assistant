@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "sourceSHA256": "9e91694ce321ddc8feaa73e0e64f8b8dfb09a51fe997bbe91d290ea529f7df50",
+  "measuredAt": "2026-11-08T00:40:20.125Z",
+  "core": {
+    "passed": false,
+    "exitCode": 1,
+    "tests": 192,
+    "failures": [
+      "HTTP pairing, schemas, origin, static traversal, concurrency and shutdown"
+    ],
+    "environmentFailure": true
+  },
+  "dashboard": {
+    "passed": true,
+    "exitCode": 0,
+    "tests": 11,
+    "failures": [],
+    "environmentFailure": false
+  },
+  "passed": false
+}

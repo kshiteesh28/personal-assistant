@@ -10,6 +10,7 @@ import { createSecretaryAdapter } from './secretary.mjs';
 import { Workspace } from './workspace.mjs';
 import { createTerminalService } from './terminal.mjs';
 import { createExternalService } from './external.mjs';
+import { createUnderstanding } from './understanding/runtime.mjs';
 
 export const defaultDataDir = join(homedir(),'Library','Application Support','kst-dev','core');
 const webRoot=resolve(dirname(fileURLToPath(import.meta.url)),'../../kst-web');
@@ -26,8 +27,8 @@ export function startServer(options={}) {
   const lockPath=join(dataDir,'owner.lock'), nonce=randomBytes(16).toString('hex');
   let fd;
   try {fd=openSync(lockPath,'wx',0o600);writeFileSync(fd,JSON.stringify({pid:process.pid,nonce,startedAt:new Date().toISOString()}));closeSync(fd);} catch {throw new Error(`kst profile is locked. Another core may own it. After an abnormal exit, verify no owner remains before manually archiving ${lockPath}. Never remove a live owner's lock.`);}
-  let engine,workspace,terminal,external,server,timer,closed=false,cleanupPromise;
-  const cleanup=()=>cleanupPromise??=(async()=>{closed=true;clearInterval(timer);let executorsStopped=false;try{await external?.close?.();await terminal?.close?.();executorsStopped=true;}finally{try{workspace?.close();}finally{engine?.close();}if(executorsStopped){try{if(JSON.parse(readFileSync(lockPath,'utf8')).nonce===nonce)unlinkSync(lockPath);}catch{}}}})();
+  let engine,workspace,terminal,external,adaptive,server,timer,closed=false,cleanupPromise;
+  const cleanup=()=>cleanupPromise??=(async()=>{closed=true;clearInterval(timer);let executorsStopped=false;try{await adaptive?.close?.();await external?.close?.();await terminal?.close?.();executorsStopped=true;}finally{try{workspace?.close();}finally{engine?.close();}if(executorsStopped){try{if(JSON.parse(readFileSync(lockPath,'utf8')).nonce===nonce)unlinkSync(lockPath);}catch{}}}})();
   try {
     const tokenPath=join(dataDir,'token');
     let token=options.token??process.env.KST_TOKEN;
@@ -41,14 +42,15 @@ export function startServer(options={}) {
     if(!options.projects&&process.env.KST_PROJECTS_FILE){const file=process.env.KST_PROJECTS_FILE;if(!isAbsolute(file)||lstatSync(file).isSymbolicLink())throw Error('Project configuration must be an absolute regular file.');projects=JSON.parse(readFileSync(file,'utf8'));}
     terminal=createTerminalService({dataDir,projects,tokenFile:tokenPath,getCoreURL:()=>`http://127.0.0.1:${server?.address()?.port??port}`});
     external=createExternalService({dataDir:join(dataDir,'external')});
+    adaptive=createUnderstanding({dataDir,engine,workspace,terminal,external,secretary,mode:options.understandingMode});
     for(const name of ['kst.sqlite','kst.sqlite-wal','kst.sqlite-shm']){try{chmodSync(join(dataDir,name),0o600);}catch(e){if(e.code!=='ENOENT')throw e;}}
-    server=http.createServer(createRequestHandler({engine,workspace,terminal,external,token,port,staticDir,secretary,getActualPort:()=>server.address()?.port}));
+    server=http.createServer(createRequestHandler({engine,workspace,terminal,external,...adaptive,token,port,staticDir,secretary,getActualPort:()=>server.address()?.port}));
     server.requestTimeout=10000;server.headersTimeout=10000;
     const ready=new Promise((accept,reject)=>{
       server.once('error',e=>{cleanup().then(()=>reject(e),()=>reject(e));});
       server.listen(port,'127.0.0.1',()=>{try{engine.recover();workspace.observeJobs(terminal.status().jobs);workspace.tick();timer=setInterval(()=>{try{workspace.observeJobs(terminal.status().jobs);workspace.tick();}catch{console.error('[kst] code=SCHEDULER_FAILED');}},15000);timer.unref();accept(server.address());}catch(e){server.close();cleanup().then(()=>reject(e),()=>reject(e));}});
     });
-    return {server,ready,engine,workspace,terminal,dataDir,tokenPath,close:()=>new Promise((resolveClose,rejectClose)=>server.close(()=>{cleanup().then(resolveClose,rejectClose);} ))};
+    return {server,ready,engine,workspace,terminal,...adaptive,dataDir,tokenPath,close:()=>new Promise((resolveClose,rejectClose)=>server.close(()=>{cleanup().then(resolveClose,rejectClose);} ))};
   }catch(e){cleanup().catch(()=>console.error('[kst] code=CLEANUP_FAILED owner-lock retained'));throw e;}
 }
 

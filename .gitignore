@@ -19,3 +19,6 @@ dist/
 .swiftpm/
 apps/macos/build/
 *.log
+
+# Locally compiled native classifier
+packages/kst-core/native/understanding/build/
