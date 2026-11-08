@@ -5,7 +5,7 @@
     "": {
       "name": "personal-secretary",
       "dependencies": {
-        "chrono-node": "^2.7.5",
+        "chrono-node": "2.9.0",
       },
       "devDependencies": {
         "concurrently": "^8.2.2",
@@ -693,3 +693,4 @@
     "protobufjs/@types/node/undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
   }
 }
+ï¾

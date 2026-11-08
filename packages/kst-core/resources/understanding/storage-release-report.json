@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "measured": true,
+  "totalTests": 19,
+  "failedTests": 0,
+  "passedTests": 19,
+  "caps": {
+    "examples": 256,
+    "preferences": 32,
+    "personalPayloadBytes": 65536,
+    "steadyAllocatedBytes": 786432,
+    "peakAllocatedBytes": 1048576
+  },
+  "steadyAllocatedBytes": 585728,
+  "peakAllocatedBytes": 806912,
+  "personalPayloadBytes": 65536,
+  "maxDataProfile": {
+    "examples": 256,
+    "preferences": 32,
+    "payloadBytes": 65536
+  },
+  "cases": [
+    {
+      "name": "promotion-before-open",
+      "passed": true,
+      "recoveredVersion": 1
+    },
+    {
+      "name": "promotion-before-write",
+      "passed": true,
+      "recoveredVersion": 1
+    },
+    {
+      "name": "promotion-after-write",
+      "passed": true,
+      "recoveredVersion": 1
+    },
+    {
+      "name": "promotion-after-fsync",
+      "passed": true,
+      "recoveredVersion": 1
+    },
+    {
+      "name": "promotion-before-rename",
+      "passed": true,
+      "recoveredVersion": 1
+    },
+    {
+      "name": "promotion-after-rename",
+      "passed": true,
+      "recoveredVersion": 1
+    },
+    {
+      "name": "promotion-after-directory-fsync",
+      "passed": true,
+      "recoveredVersion": 1
+    },
+    {
+      "name": "promotion-before-pointer",
+      "passed": true,
+      "recoveredVersion": 1
+    },
+    {
+      "name": "promotion-during-pointer",
+      "passed": true,
+      "recoveredVersion": 1
+    },
+    {
+      "name": "promotion-after-pointer",
+      "passed": true,
+      "recoveredVersion": 2
+    },
+    {
+      "name": "promotion-after-publication",
+      "passed": true,
+      "recoveredVersion": 2
+    },
+    {
+      "name": "row-caps-256-32",
+      "passed": true
+    },
+    {
+      "name": "logical-and-allocated-budget",
+      "passed": true
+    },
+    {
+      "name": "corrupt-during-forget",
+      "passed": true,
+      "privacyGeneration": 2
+    },
+    {
+      "name": "rollback-privacy-generation",
+      "passed": true
+    },
+    {
+      "name": "abrupt-exit-after-write",
+      "passed": true,
+      "recoveredVersion": 1
+    },
+    {
+      "name": "abrupt-exit-after-rename",
+      "passed": true,
+      "recoveredVersion": 1
+    },
+    {
+      "name": "abrupt-exit-during-pointer",
+      "passed": true,
+      "recoveredVersion": 1
+    },
+    {
+      "name": "abrupt-exit-after-pointer",
+      "passed": true,
+      "recoveredVersion": 2
+    }
+  ],
+  "limitations": [
+    "APFS snapshots and power-loss durability require hardware trials",
+    "Injected ENOSPC is deterministic fault simulation, not exhaustion of user filesystem"
+  ]
+}

@@ -12,3 +12,12 @@ public enum WakeGate {
         return String(transcript[match.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
     }
 }
+
+public enum VoiceControl {
+    /// A Stop coalesced with a bounded read cancels the turn; data payloads stay data.
+    public static func isStop(_ transcript: String) -> Bool {
+        let text = transcript.lowercased().trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+        if ["stop", "stop listening", "disarm", "mute microphone"].contains(text) { return true }
+        return text.range(of: "^(?:show|list) (?:my )?(?:tasks|notes|reminders|calendar|timeline)[,;.!? ]+stop(?: listening)?$", options: .regularExpression) != nil
+    }
+}

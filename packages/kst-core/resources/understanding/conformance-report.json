@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-07",
+  "scope": "Deterministic integration/component conformance; hardware claims remain explicitly pending. Passing test names are not independent corpus accuracy evidence.",
+  "testFiles": [
+    "packages/kst-core/test/understanding/conformance.test.mjs",
+    "packages/kst-core/test/understanding/interpreter.test.mjs",
+    "packages/kst-core/test/understanding/learning.test.mjs",
+    "packages/kst-core/test/understanding/learning-release.test.mjs"
+  ],
+  "cases": [
+    {
+      "id": "T01",
+      "passed": true,
+      "evidence": "conformance.test.mjs: three differently ordered meeting requests execute with identical preserved title/start/duration after bound confirmation."
+    },
+    {
+      "id": "T02",
+      "passed": true,
+      "evidence": "conformance.test.mjs: missing date/time/duration across turns; no early domain write."
+    },
+    {
+      "id": "T03",
+      "passed": true,
+      "evidence": "conformance.test.mjs: actual seed plus coordinator speech-act guards; no negated/hypothetical effects."
+    },
+    {
+      "id": "T04",
+      "passed": true,
+      "evidence": "conformance.test.mjs: note body contains quoted delete command, original punctuation preserved, no task/terminal effect."
+    },
+    {
+      "id": "T05",
+      "passed": true,
+      "evidence": "conformance.test.mjs: reported past cancellation leaves existing meeting intact."
+    },
+    {
+      "id": "T06",
+      "passed": true,
+      "evidence": "conformance.test.mjs: duplicate titles require exact returned ID selection; one target completes."
+    },
+    {
+      "id": "T07",
+      "passed": true,
+      "evidence": "conformance.test.mjs: references do not cross discussions or survive five-minute expiry."
+    },
+    {
+      "id": "T08",
+      "passed": true,
+      "evidence": "conformance.test.mjs: back fifteen minutes explicitly asks earlier/later and requires resulting explicit timestamp; no reschedule."
+    },
+    {
+      "id": "T09",
+      "passed": true,
+      "evidence": "conformance.test.mjs: stale revision rejects without consuming the pending question."
+    },
+    {
+      "id": "T10",
+      "passed": true,
+      "evidence": "conformance.test.mjs: generic yes does not approve pending scoped Claude proposal or dispatch provider."
+    },
+    {
+      "id": "T11",
+      "passed": true,
+      "evidence": "conformance.test.mjs: same request replays exact pinned response after clock/model change."
+    },
+    {
+      "id": "T12",
+      "passed": true,
+      "evidence": "conformance.test.mjs: same ID with different input returns IDEMPOTENCY_CONFLICT and no duplicate write."
+    },
+    {
+      "id": "T13",
+      "passed": true,
+      "evidence": "conformance.test.mjs: workspace commit/coordinator-crash gap reconciles durable child receipt once."
+    },
+    {
+      "id": "T14",
+      "passed": true,
+      "evidence": "conformance.test.mjs: browser admission crash becomes UNKNOWN; repeat does not reopen browser."
+    },
+    {
+      "id": "T15",
+      "passed": true,
+      "evidence": "conformance.test.mjs: pending interpretation retains version 1; new discussion uses version 2."
+    },
+    {
+      "id": "T16",
+      "passed": true,
+      "evidence": "learning.test.mjs: forgetting remembered preference while worker runs cancels obsolete generation."
+    },
+    {
+      "id": "T17",
+      "passed": true,
+      "evidence": "learning.test.mjs: expiry invalidates active and rollback models containing forgotten evidence."
+    },
+    {
+      "id": "T18",
+      "passed": true,
+      "evidence": "learning-release.test.mjs: eleven promotion fault boundaries and four actual process crashes preserve old pointer or seed."
+    },
+    {
+      "id": "T19",
+      "passed": true,
+      "evidence": "conformance.test.mjs validates malformed/oversized final text before inference; model/native tests validate malformed artifact and feature buffers."
+    },
+    {
+      "id": "T20",
+      "passed": false,
+      "evidence": "Component evidence: learning.test.mjs wake heartbeat during armed training cancels worker. Ordinary Mac microphone responsiveness/audio trial is still pending; synthetic heartbeat cannot establish this hardware requirement."
+    },
+    {
+      "id": "T21",
+      "passed": true,
+      "evidence": "conformance.test.mjs: ninth pending discussion rejected without evicting eight pending actions."
+    },
+    {
+      "id": "T22",
+      "passed": true,
+      "evidence": "conformance.test.mjs: exact entity outside 500-row dashboard snapshot resolves authoritatively; bounded queries disclose truncation."
+    },
+    {
+      "id": "T23",
+      "passed": true,
+      "evidence": "conformance.test.mjs: learned terminal intent requires fields and bound confirmation; unknown recipe rejected; arbitrary shell text cannot become a configured recipe."
+    },
+    {
+      "id": "T24",
+      "passed": true,
+      "evidence": "conformance.test.mjs: fake Chrome handoff receives original query and exact You can read now reply with no approval. Visible Chrome OS window is separately a hardware release gate."
+    },
+    {
+      "id": "T25",
+      "passed": true,
+      "evidence": "conformance.test.mjs: production HTTP off/shadow routes preserve compatibility receipts and write domain tables once."
+    },
+    {
+      "id": "T26",
+      "passed": true,
+      "evidence": "conformance.test.mjs: equal automatic score floor requires bound confirmation; native/reference parity is separately covered by model tests."
+    },
+    {
+      "id": "T27",
+      "passed": true,
+      "evidence": "learning-release.test.mjs: transactional 256-example/32-preference/65536-byte payload caps and saturated profile; no unbounded growth."
+    },
+    {
+      "id": "T28",
+      "passed": true,
+      "evidence": "learning.test.mjs: reset replay preserves examples retained later and consumed token is rejected for another ID."
+    },
+    {
+      "id": "T29",
+      "passed": true,
+      "evidence": "conformance.test.mjs: identical concurrent browser requests join one original admission and result."
+    },
+    {
+      "id": "T30",
+      "passed": false,
+      "evidence": "Component evidence: armed reporter permits a worker attempt and wake cancels it. Actual packaged corpus currently fails minimum replay coverage, so successful idle retraining while armed has not been demonstrated; all-day real wake/audio trial remains pending."
+    },
+    {
+      "id": "T31",
+      "passed": true,
+      "evidence": "learning-release.test.mjs: corrupt learning store during forget commits operational privacy barrier and recovers conservatively."
+    }
+  ],
+  "failedTests": [],
+  "unmetCases": [
+    "T20",
+    "T30"
+  ],
+  "typedVoiceParity": true,
+  "typedVoiceParityEvidence": "Executed conformance.test.mjs source=typed/source=voice with identical final transcript and isolated identical initial workspace: task, note, meeting and web actions/decisions match. This does not claim speech recognition audio accuracy.",
+  "activeReleaseApproved": false
+}

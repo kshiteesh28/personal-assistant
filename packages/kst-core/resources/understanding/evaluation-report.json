@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 1,
+  "releaseReady": false,
+  "measuredAt": "2026-11-07T21:44:43.533Z",
+  "node": "v22.23.3",
+  "os": "darwin",
+  "arch": "arm64",
+  "runtime": "native",
+  "corpusSha256": "54d3e5a1955ae8202d05176285b09ce5cdbaf204effd23754019fdf6ff0e5f8f",
+  "artifactBytes": 132224,
+  "replayBytes": 38883,
+  "artifactAllocatedBytes": 135168,
+  "replayAllocatedBytes": 40960,
+  "perClass": [
+    {
+      "label": 0,
+      "intent": "other",
+      "correct": 59,
+      "total": 64,
+      "independentGroups": 64
+    },
+    {
+      "label": 1,
+      "intent": "task.create",
+      "correct": 10,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 2,
+      "intent": "task.complete",
+      "correct": 10,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 3,
+      "intent": "tasks.list",
+      "correct": 10,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 4,
+      "intent": "note.create",
+      "correct": 10,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 5,
+      "intent": "notes.list",
+      "correct": 10,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 6,
+      "intent": "reminder.create",
+      "correct": 10,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 7,
+      "intent": "reminder.reschedule",
+      "correct": 5,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 8,
+      "intent": "reminder.snooze",
+      "correct": 10,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 9,
+      "intent": "reminder.cancel",
+      "correct": 10,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 10,
+      "intent": "reminders.list",
+      "correct": 10,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 11,
+      "intent": "meeting.create",
+      "correct": 10,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 12,
+      "intent": "meeting.reschedule",
+      "correct": 10,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 13,
+      "intent": "meeting.cancel",
+      "correct": 10,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 14,
+      "intent": "calendar.list",
+      "correct": 10,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 15,
+      "intent": "timeline.list",
+      "correct": 10,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 16,
+      "intent": "plan.propose",
+      "correct": 5,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 17,
+      "intent": "plan.apply",
+      "correct": 5,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 18,
+      "intent": "web.search",
+      "correct": 10,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 19,
+      "intent": "terminal.runRecipe",
+      "correct": 5,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 20,
+      "intent": "terminal.inventory",
+      "correct": 10,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 21,
+      "intent": "terminal.cancelJob",
+      "correct": 5,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 22,
+      "intent": "external.request",
+      "correct": 10,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 23,
+      "intent": "external.results",
+      "correct": 10,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 24,
+      "intent": "source.read",
+      "correct": 10,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 25,
+      "intent": "help",
+      "correct": 0,
+      "total": 10,
+      "independentGroups": 2
+    },
+    {
+      "label": 26,
+      "intent": "status",
+      "correct": 5,
+      "total": 10,
+      "independentGroups": 2
+    }
+  ],
+  "syntheticGate": {
+    "correct": 279,
+    "total": 324,
+    "uniqueGroups": 116,
+    "warning": "Repeated fixture rows are not independent accuracy evidence."
+  },
+  "comparison": {
+    "paUniqueGateCorrect": 103,
+    "logisticSgdUniqueGateCorrect": 101,
+    "total": 116,
+    "logisticFloatParameterBytes": 442368,
+    "fastText": "unavailable: binary not installed; comparison blocked"
+  },
+  "featureAndClassifierBenchmark": {
+    "warmup": 100,
+    "requests": 10000,
+    "runs": [
+      {
+        "p50Ms": 0.009000000000000341,
+        "p95Ms": 0.014875000000003524,
+        "p99Ms": 0.02362500000000267
+      },
+      {
+        "p50Ms": 0.008166999999986047,
+        "p95Ms": 0.01170799999999872,
+        "p99Ms": 0.014583000000016
+      },
+      {
+        "p50Ms": 0.008166999999957625,
+        "p95Ms": 0.011666999999988548,
+        "p99Ms": 0.013666999999998097
+      },
+      {
+        "p50Ms": 0.008125000000006821,
+        "p95Ms": 0.01170799999999872,
+        "p99Ms": 0.014499999999998181
+      },
+      {
+        "p50Ms": 0.008166000000016993,
+        "p95Ms": 0.011832999999967342,
+        "p99Ms": 0.015332999999998265
+      }
+    ],
+    "worstP95Ms": 0.014875000000003524,
+    "limitMs": 5,
+    "passes": true
+  },
+  "rssBytes": 83296256,
+  "blockers": [
+    "Independent development train/calibration/test minima unmet; scaffold paraphrases are not release corpus.",
+    "Automatic read/web policies remain disabled; accepted precision and OOS gates have not been measured.",
+    "Full interpreter/executor critical tests and ordinary Mac voice trials required.",
+    "Quantized fastText development comparison not completed.",
+    "Training event-loop latency, temporary full-tree allocation, privacy and crash gates require integrated evaluation."
+  ]
+}ëŽ

@@ -1,6 +1,8 @@
 import AppKit
 import SwiftUI
 import AVFoundation
+import CoreGraphics
+import Combine
 import KstNativeCore
 
 struct Message: Identifiable {
@@ -12,7 +14,9 @@ struct Message: Identifiable {
 private struct CoreReply: Decodable {
     let reply: String
     let conversationId: String
+    let understanding: UnderstandingReply?
 }
+private struct UnderstandingReply: Decodable { let contextRevision: Int }
 private struct CoreSettings: Decodable {
     let wakePhrase: String
     let revision: Int
@@ -29,6 +33,8 @@ private struct PendingRequest {
     let id: String
     let text: String
     let conversationId: String?
+    let contextRevision: Int?
+    let source: String
 }
 
 @MainActor
@@ -44,6 +50,10 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     @Published var wakePhrase = ""
     @Published var busy = false
     @Published var savedNotice = ""
+    private var activitySubscription: AnyCancellable?
+    private var contextRevision: Int?
+    private let clientInstanceId = UUID().uuidString
+    private var runtimeSequence = 0
     private var conversationId: String?
     private var pendingRequest: PendingRequest?
     private var settingsRevision: Int?
@@ -75,10 +85,11 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         session = URLSession(configuration: configuration, delegate: LoopbackRedirectGuard(), delegateQueue: nil)
         super.init()
         speech.delegate = self
+        activitySubscription = voice.$status.removeDuplicates().sink { [weak self] _ in Task { @MainActor in await self?.reportRuntimeState() } }
         voice.onFinal = { [weak self] text in
             guard let self, self.voice.active else { return }
             let normalized = text.lowercased().trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
-            if ["stop", "stop listening", "disarm", "mute microphone"].contains(normalized) {
+            if VoiceControl.isStop(text) {
                 self.stop()
                 return
             }
@@ -90,8 +101,8 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
             self.submit(fromVoice: true)
         }
         voice.onFailure = { [weak self] message in self?.issue = message }
-        voice.onWake = { [weak self] in self?.speak("I'm listening.") }
-        voice.onDiscussionEnded = { [weak self] in self?.conversationId = nil }
+        voice.onWake = { [weak self] in self?.speak("I'm listening."); Task { await self?.reportRuntimeState() } }
+        voice.onDiscussionEnded = { [weak self] in self?.conversationId = nil; self?.contextRevision = nil }
         do { settings = try store.load() } catch { issue = "Settings could not be read. Existing settings were preserved; save to replace them." }
         if endpoint == nil { issue = NativeFailure.invalidLocalURL.localizedDescription }
     }
@@ -145,13 +156,14 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
                   body["status"] as? String == "ok", body["app"] as? String == "kst" else {
                 connection = "Unexpected core response — retrying"; return false
             }
-            guard body["version"] as? String == "0.4.1" else {
+            guard body["version"] as? String == "0.5.0" else {
                 connection = "Core update required"
-                issue = "The local core is older than this app and still uses the previous web approval flow. Restart the core that owns port 4310, then retry. If kst started it, quit and reopen kst; if you started it in Terminal, stop it there and run “node scripts/kst.mjs start” again."
+                issue = "The local core is older than this app and does not support the adaptive conversation protocol. Restart the core that owns port 4310, then retry. If kst started it, quit and reopen kst; if you started it in Terminal, stop it there and run “node scripts/kst.mjs start” again."
                 return false
             }
             connection = "Local core connected"
             if issue?.contains("older than this app") == true { issue = nil }
+            await reportRuntimeState()
             await refreshSharedSettings()
             await refreshExternalResults()
             return true
@@ -159,6 +171,26 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
             connection = "Core unavailable — automatic retry enabled"
             return false
         }
+    }
+
+    private func reportRuntimeState() async {
+        guard let endpoint, let token = pairingToken() else { return }
+        runtimeSequence += 1
+        let thermal: String
+        switch ProcessInfo.processInfo.thermalState {
+        case .nominal: thermal = "nominal"
+        case .fair: thermal = "fair"
+        case .serious: thermal = "serious"
+        case .critical: thermal = "critical"
+        @unknown default: thermal = "critical"
+        }
+        let voiceState = speech.isSpeaking ? "speaking" : !voice.active ? "off" : voice.waitingForWake ? "armed" : "discussion"
+        var request = URLRequest(url: endpoint.appendingPathComponent("api/understanding/runtime-state"))
+        request.httpMethod = "PATCH"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: ["clientInstanceId": clientInstanceId, "sequence": runtimeSequence, "voiceState": voiceState, "ttsActive": speech.isSpeaking, "idleSeconds": min(86400, max(0, CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .null))), "lowPowerMode": ProcessInfo.processInfo.isLowPowerModeEnabled, "thermalState": thermal])
+        _ = try? await session.data(for: request)
     }
 
     private func refreshExternalResults() async {
@@ -187,6 +219,7 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         generation += 1
         let endedGeneration = generation
         conversationId = nil
+        contextRevision = nil
         voice.endDiscussion()
         guard let endedConversation, let endpoint, let token = pairingToken() else { return }
         var request = URLRequest(url: endpoint.appendingPathComponent("api/conversation"))
@@ -221,38 +254,65 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
             issue = "The previous request has an uncertain result. Retry its original text with the same request ID, or Stop and check receipts before starting a different request."
             return
         }
-        let pending = pendingRequest ?? PendingRequest(id: UUID().uuidString, text: text, conversationId: conversationId)
+        let pending = pendingRequest ?? PendingRequest(id: UUID().uuidString, text: text, conversationId: conversationId, contextRevision: contextRevision, source: fromVoice ? "voice" : "typed")
         if pendingRequest == nil { appendMessage(role: "You", text: text) }
         pendingRequest = pending
         draft = ""
         generation += 1
         let acceptedGeneration = generation
         busy = true
+        Task { await reportRuntimeState() }
         issue = nil
         speech.stopSpeaking(at: .immediate)
         var request = URLRequest(url: endpoint.appendingPathComponent("api/conversation"))
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        var body: [String: String] = ["requestId": pending.id, "text": pending.text]
+        var body: [String: Any] = ["requestId": pending.id, "text": pending.text, "source": pending.source]
+        if let revision = pending.contextRevision { body["contextRevision"] = revision }
         if let conversationId = pending.conversationId { body["conversationId"] = conversationId }
-        request.httpBody = try? JSONEncoder().encode(body)
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
         requestTask = Task { [weak self] in
             guard let self else { return }
             defer { if self.generation == acceptedGeneration { self.busy = false } }
             do {
-                let (data, response) = try await self.session.data(for: request)
+                var (data, response) = try await self.session.data(for: request)
+                for _ in 0..<30 where (response as? HTTPURLResponse)?.statusCode == 202 {
+                    try Task.checkCancellation()
+                    try await Task.sleep(for: .seconds(1))
+                    guard self.generation == acceptedGeneration else { return }
+                    var poll = URLRequest(url: endpoint.appendingPathComponent("api/understanding/requests/\(pending.id)"))
+                    poll.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+                    (data, response) = try await self.session.data(for: poll)
+                    if let receipt = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                        if let final = receipt["response"] as? [String: Any], final["reply"] != nil { data = try JSONSerialization.data(withJSONObject: final); break }
+                        if ["PREPARED", "DISPATCHING"].contains(receipt["state"] as? String ?? "") { response = HTTPURLResponse(url: poll.url!, statusCode: 202, httpVersion: nil, headerFields: nil)! }
+                    }
+                }
                 guard self.generation == acceptedGeneration else { return }
                 let httpResponse = response as? HTTPURLResponse
                 guard let httpResponse, httpResponse.statusCode == 200 else {
+                    self.draft = text
+                    let details = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+                    let error = details?["error"] as? [String: Any]
+                    self.issue = error?["message"] as? String ?? "The result is pending or unverified. Review its receipt before repeating it."
+                    if httpResponse?.statusCode == 409 || httpResponse?.statusCode == 400 {
+                        self.pendingRequest = nil
+                        self.contextRevision = nil
+                        self.voice.resume()
+                    } else { self.voice.close() }
+                    return
+                }
+                if let payload = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], payload["executionState"] as? String == "UNKNOWN" {
                     self.voice.close()
                     self.draft = text
-                    self.issue = "The core rejected this request. Check pairing and core status. No automatic resubmission was made."
+                    self.issue = "Execution is uncertain. Review request \(pending.id) before sending another action."
                     return
                 }
                 let reply = try JSONDecoder().decode(CoreReply.self, from: data)
                 self.pendingRequest = nil
                 self.conversationId = reply.conversationId
+                self.contextRevision = reply.understanding?.contextRevision
                 self.appendMessage(role: "kst", text: reply.reply)
                 self.speak(reply.reply)
             } catch {
@@ -275,8 +335,30 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         speakingID = nil
         speech.stopSpeaking(at: .immediate)
         let utterance = AVSpeechUtterance(string: String(text.prefix(1200)))
-        // Nil voice uses the system default. No voice selection or extra download.
-        utterance.voice = nil
+        // Resolve from Apple's live catalog first: identifiers differ between
+        // compact/enhanced installations, and gender may initially be unspecified.
+        let preferredNames = ["Daniel", "Rishi", "Aman", "Fred"]
+        let available = AVSpeechSynthesisVoice.speechVoices()
+        let maleVoice = available.filter { candidate in
+            candidate.language.hasPrefix("en") &&
+            candidate.gender != .female &&
+            (candidate.gender == .male || preferredNames.contains(candidate.name))
+        }.sorted { left, right in
+            let leftRank = preferredNames.firstIndex(of: left.name) ?? preferredNames.count
+            let rightRank = preferredNames.firstIndex(of: right.name) ?? preferredNames.count
+            if leftRank != rightRank { return leftRank < rightRank }
+            if left.quality != right.quality { return left.quality.rawValue > right.quality.rawValue }
+            // Prefer compact Daniel when both catalog variants are registered.
+            return left.identifier < right.identifier
+        }.first ?? AVSpeechSynthesisVoice(identifier: "com.apple.speech.synthesis.voice.Fred")
+        guard let maleVoice else {
+            issue = "Apple could not provide an installed male voice. The reply remains visible."
+            voice.resume()
+            return
+        }
+        utterance.voice = maleVoice
+        utterance.rate = 0.52
+        utterance.pitchMultiplier = 1.0
         speakingID = ObjectIdentifier(utterance)
         voice.speaking()
         speech.speak(utterance)
@@ -333,6 +415,7 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         busy = false
         speech.stopSpeaking(at: .immediate)
         conversationId = nil
+        contextRevision = nil
         pendingRequest = nil
         issue = "Discussion stopped. A request already accepted by the core may have completed; check its receipt before retrying."
         guard let endpoint, let token = pairingToken() else { return }
@@ -473,7 +556,7 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     TextField("Shared wake phrase", text: $model.wakePhrase).textFieldStyle(.roundedBorder)
                     Text("Armed mode recognizes this phrase through local Apple speech. It consumes more power than a trained keyword detector; accuracy and battery use require hardware testing.").font(.caption).foregroundStyle(.secondary)
-                    Toggle("Speak replies using the default Apple voice", isOn: $model.settings.spokenReplies)
+                    Toggle("Speak replies using an Apple male voice · medium pace", isOn: $model.settings.spokenReplies)
                     Button("Save preferences") { model.saveSettings() }
                     if !model.savedNotice.isEmpty { Text(model.savedNotice).font(.caption).foregroundStyle(.secondary) }
                 }.padding(.top, 8)
@@ -500,7 +583,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         self.model = model
-        if let logo = Bundle.main.url(forResource: "kst-logo", withExtension: "png"), let icon = NSImage(contentsOf: logo) {
+        if let iconURL = Bundle.main.url(forResource: "kst-icon", withExtension: "png"), let icon = NSImage(contentsOf: iconURL) {
             NSApp.applicationIconImage = icon
         }
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 740), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)

@@ -1,0 +1,65 @@
+{
+  "schemaVersion": 1,
+  "measuredAt": "2026-11-07T21:47:21.382Z",
+  "node": "v22.23.3",
+  "os": "27.0.0",
+  "arch": "arm64",
+  "runtime": "native",
+  "extractionFeatureLookup": {
+    "warmup": 100,
+    "requestsPerRun": 10000,
+    "runs": [
+      {
+        "p50Ms": 0.021082999999975982,
+        "p95Ms": 0.2583340000000476,
+        "p99Ms": 0.3110420000000431
+      },
+      {
+        "p50Ms": 0.02020800000013878,
+        "p95Ms": 0.2448340000000826,
+        "p99Ms": 0.2952090000001135
+      },
+      {
+        "p50Ms": 0.020416999999724794,
+        "p95Ms": 0.2498329999998532,
+        "p99Ms": 0.2775000000001455
+      },
+      {
+        "p50Ms": 0.021459000000049855,
+        "p95Ms": 0.27500000000009095,
+        "p99Ms": 0.30704199999991033
+      },
+      {
+        "p50Ms": 0.020207999999911408,
+        "p95Ms": 0.24874999999974534,
+        "p99Ms": 0.2707500000001346
+      }
+    ],
+    "worstP95Ms": 0.27500000000009095,
+    "scope": "Pure extraction + features + authoritative entity lookup. Excludes coordinator receipt/dispatch; not full-interpretation release evidence."
+  },
+  "idleWorker": {
+    "elapsedMs": 98.98158300000023,
+    "eventLoopP95Ms": 1.316863,
+    "state": "idle",
+    "failure": null,
+    "training": {
+      "attemptedAt": 1794088041283,
+      "completedAt": 1794088041357,
+      "datasetRevision": 0,
+      "state": "NO_CHANGE"
+    }
+  },
+  "allocatedBytes": {
+    "examples": 0,
+    "preferences": 0,
+    "payloadBytes": 0,
+    "logicalBytes": 187491,
+    "allocatedBytes": 192512,
+    "databaseBytes": 16384,
+    "steadyLimit": 786432,
+    "peakLimit": 1048576
+  },
+  "rssBytes": 140967936,
+  "activeReleaseApproved": false
+}

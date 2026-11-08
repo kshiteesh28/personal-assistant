@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "synthetic": true,
+  "clonedPadding": false,
+  "classificationPipeline": "interpret -> maskedUtterance(grammar.action) -> extractFeatures",
+  "independentSemanticCorpusComplete": false,
+  "partitions": {
+    "train": 1120,
+    "calibration": 324,
+    "test": 142
+  },
+  "perActionCounts": {
+    "train": 40,
+    "calibration": 10,
+    "test": 3
+  },
+  "otherCounts": {
+    "train": 80,
+    "calibration": 64,
+    "test": 64
+  },
+  "criticalCases": 192,
+  "artifactBytes": 132224,
+  "replayBytes": 87324,
+  "corpusHash": "b67845550e5a0a0381c9c92eab1870bbd863c8e8bb5ac389dc4771d9860acf73",
+  "automaticPoliciesEnabled": 0,
+  "releaseReady": false,
+  "blockers": [
+    "Independent action corpus minima remain unmet: 40/10/3 train/calibration/test per action versus required 120/40/80.",
+    "Other independent test count 64 versus required 500.",
+    "Automatic policies require calibration and independent precision/OOS gates."
+  ]
+}

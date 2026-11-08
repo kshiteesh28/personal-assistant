@@ -11,11 +11,11 @@ function validId(id) {if(!string(id,8,128)||!/^[\w-]+$/.test(id))throw new Fault
 const contentTypes={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.ico':'image/x-icon'};
 
 // Transport-independent handler: the same implementation serves sockets and deterministic tests.
-export function createRequestHandler({engine,workspace,terminal,external,token,port,staticDir,getActualPort=()=>port,secretary={snapshot:()=>({status:'disabled',data:{tasks:[],notes:[],reminders:[],calendar:[]}})}}) {
+export function createRequestHandler({engine,workspace,terminal,external,understanding,learning,token,port,staticDir,getActualPort=()=>port,secretary={snapshot:()=>({status:'disabled',data:{tasks:[],notes:[],reminders:[],calendar:[]}})}}) {
     const secret=Buffer.from(token);
     const origins=new Set([`http://127.0.0.1:${port}`,`http://localhost:${port}`]);
     const activeJobs=()=>[...(terminal?.status?.().jobs??[]),...(external?.status?.().jobs??[])].filter(j=>['prepared','running','cancelling'].includes(j.status)).slice(0,100);
-    const stopAll=async(requestId)=>{const receipt=engine.stop(requestId,activeJobs().map(j=>j.id));workspace?.endConversation();const jobs=await Promise.all((receipt.jobIds??[]).map(async id=>{try{return id.startsWith('external-')?external.cancel(id):await terminal.cancel(id);}catch{return {id,status:'unknown',message:'Cancellation could not be verified. Review the job receipt before retrying.'};}}));return {...receipt,jobs,reply:jobs.length?`Stop requested. ${jobs.map(j=>`Job ${j.id}: ${j.status}`).join('; ')}`:'Stopped. Pending requests cancelled; no owned jobs were running.'};};
+    const stopAll=async(requestId)=>{const receipt=engine.stop(requestId,activeJobs().map(j=>j.id));workspace?.endConversation();understanding?.stop();learning?.cancel?.('stop');const jobs=await Promise.all((receipt.jobIds??[]).map(async id=>{try{return id.startsWith('external-')?external.cancel(id):await terminal.cancel(id);}catch{return {id,status:'unknown',message:'Cancellation could not be verified. Review the job receipt before retrying.'};}}));return {...receipt,jobs,reply:jobs.length?`Stop requested. ${jobs.map(j=>`Job ${j.id}: ${j.status}`).join('; ')}`:'Stopped. Pending requests cancelled; no owned jobs were running.'};};
     const decide=(id,decision,revision)=>{
       const result=engine.approval(id,decision,revision,{dispatch:Boolean(external)});
       if(!external||result.approval.status!=='approved')return result;
@@ -34,7 +34,7 @@ export function createRequestHandler({engine,workspace,terminal,external,token,p
         if(!expectedHosts.has(req.headers.host))throw new Fault('HOST_REJECTED','Unsupported local host.',403);
         if(req.headers.origin&&!origins.has(req.headers.origin)&&!new Set([`http://127.0.0.1:${actualPort}`,`http://localhost:${actualPort}`]).has(req.headers.origin))throw new Fault('ORIGIN_REJECTED','This origin is not paired.',403);
         const url=new URL(req.url,`http://${req.headers.host}`),path=url.pathname;
-        if(req.method==='GET'&&path==='/health')return json(200,{app:'kst',status:'ok',mode:workspace?'secretary':'scratch',version:'0.4.1',uptimeSeconds:Math.floor(process.uptime())});
+        if(req.method==='GET'&&path==='/health')return json(200,{app:'kst',status:'ok',mode:workspace?'secretary':'scratch',version:'0.5.0',uptimeSeconds:Math.floor(process.uptime())});
         if(path.startsWith('/api/')) {
           const incoming=Buffer.from((req.headers.authorization??'').replace(/^Bearer /,''));
           if(incoming.length!==secret.length||!timingSafeEqual(incoming,secret))throw new Fault('UNAUTHORIZED','Pair this interface using the private local token.',401);
@@ -49,6 +49,18 @@ export function createRequestHandler({engine,workspace,terminal,external,token,p
             if(w){state.mode=w.mode;state.tasks=w.tasks;state.notes=w.notes;state.capabilities=state.capabilities.map(c=>c.id==='conversation'?{...c,detail:'Local tasks, notes, reminders, meetings, planning and timeline.'}:c.id==='sync'?{...c,status:w.mode==='source-write'?'shared-workspace':'local-workspace',detail:w.mode==='source-write'?'Personal Secretary shared database with verified pre-write backup.':'Personal Secretary schema in a private local workspace; optional source connection.'}:c.id==='nudges'?{...c,status:'ready',detail:'Native activity and local calendar feed the local nudge rules; fixture preview remains available.'}:c.id==='terminal'&&term?{...c,status:term.mode,detail:'Explicitly configured fixed-argument project recipes and read-only iTerm inventory; arbitrary shell commands are disabled.'}:c);}
             return json(200,state);
           }
+          if(req.method==='GET'&&path==='/api/understanding/status')return json(200,{...understanding?.status?.(),...learning?.status?.()});
+          if(req.method==='GET'&&path==='/api/understanding/preview'&&understanding){
+            const target=url.searchParams.get('targetRequestId'),revision=Number(url.searchParams.get('contextRevision'));
+            validId(target);if(!url.searchParams.has('contextRevision')||!Number.isSafeInteger(revision)||revision<0||[...url.searchParams.keys()].some(k=>!['targetRequestId','contextRevision'].includes(k)))throw new Fault('INVALID_QUERY','Supply a target request and context revision.');
+            const preview=understanding.previewCandidate(target,revision);understanding.feedbackCandidate(target,revision).previewShown=true;return json(200,preview);
+          }
+          if(req.method==='GET'&&path==='/api/understanding/preferences'&&learning){
+            const keys=[...url.searchParams.keys()];if(keys.some(k=>!['after','limit'].includes(k)))throw new Fault('INVALID_QUERY','Unsupported preference query.');
+            const limit=Number(url.searchParams.get('limit')??10);if(!Number.isInteger(limit)||limit<1||limit>10)throw new Fault('INVALID_QUERY','Limit must be 1–10.');
+            return json(200,learning.preferences({after:url.searchParams.get('after')??undefined,limit}));
+          }
+          if(req.method==='GET'&&/^\/api\/understanding\/requests\/[\w-]+$/.test(path)&&understanding){const result=understanding.receipt(path.split('/').at(-1));if(!result)throw new Fault('NOT_FOUND','No accepted request has this ID.',404);return json(200,result);}
           if(req.method==='GET'&&path==='/api/settings')return json(200,engine.status().settings);
           if(req.method==='GET'&&path==='/api/approvals')return json(200,{approvals:engine.status().approvals});
           if(req.method==='GET'&&path==='/api/jobs')return json(200,{jobs:[...engine.status().jobs,...(external?.status().jobs??[])]});
@@ -58,11 +70,12 @@ export function createRequestHandler({engine,workspace,terminal,external,token,p
           for await(const part of req){bytes+=part.length;if(bytes>32768)throw new Fault('BODY_TOO_LARGE','Request body exceeds 32 KB.',413);parts.push(part);}
           let body;try{body=JSON.parse(Buffer.concat(parts).toString('utf8'));}catch{throw new Fault('INVALID_JSON','Malformed JSON.');}
           if(path==='/api/conversation'&&req.method==='POST') {
-            shape(body,['requestId','text'],['conversationId']);validId(body.requestId);
+            shape(body,['requestId','text'],['conversationId','contextRevision','source']);validId(body.requestId);
             if(!string(body.text)||body.conversationId!==undefined&&!string(body.conversationId,1,128))throw new Fault('INVALID_TEXT','A nonempty command up to 4,000 characters is required.');
+            if(body.contextRevision!==undefined&&(!Number.isSafeInteger(body.contextRevision)||body.contextRevision<0)||body.source!==undefined&&!['voice','typed'].includes(body.source))throw new Fault('INVALID_CONTEXT','Supply a nonnegative context revision and voice or typed source.');
             if(/^stop[.!?]?$/i.test(body.text.trim()))return json(200,{...await stopAll(body.requestId),conversationId:body.conversationId??`conversation-${body.requestId}`});
-            if(/^(?:hello|hi)[.!?]?$/i.test(body.text.trim()))return json(200,{conversationId:body.conversationId??`conversation-${body.requestId}`,reply:'I’m here. What would you like to do?'});
-            if(/^status[.!?]?$/i.test(body.text.trim()))return json(200,{conversationId:body.conversationId??`conversation-${body.requestId}`,reply:`Local core connected. ${workspace?'Secretary tasks, notes, reminders, meetings, planning and timeline are available. ':''}${terminal?'Reviewed terminal recipes are available. ':''}${external?'ChatGPT, Claude and Codex require your approval; web opens Chrome Incognito directly. ':''}Voice and activity permissions are managed in the Mac app.`});
+            if(understanding?.status?.().mode!=='active'&&/^(?:hello|hi)[.!?]?$/i.test(body.text.trim()))return json(200,{conversationId:body.conversationId??`conversation-${body.requestId}`,reply:'I’m here. What would you like to do?'});
+            if(understanding?.status?.().mode!=='active'&&/^status[.!?]?$/i.test(body.text.trim()))return json(200,{conversationId:body.conversationId??`conversation-${body.requestId}`,reply:`Local core connected. ${workspace?'Secretary tasks, notes, reminders, meetings, planning and timeline are available. ':''}${terminal?'Reviewed terminal recipes are available. ':''}${external?'ChatGPT, Claude and Codex require your approval; web opens Chrome Incognito directly. ':''}Voice and activity permissions are managed in the Mac app.`});
             const externalDecision=body.text.trim().match(/^(approve|decline) external request[.!?]?$/i);
             if(externalDecision){
               const target=engine.externalDecisionTarget(body.requestId,body.text,body.conversationId);
@@ -70,6 +83,15 @@ export function createRequestHandler({engine,workspace,terminal,external,token,p
               const result=decide(target.id,externalDecision[1].toLowerCase()==='approve'?'approve':'deny',target.revision);
               return json(200,{...result,reply:result.message,conversationId:body.conversationId});
             }
+            if(understanding?.status?.().mode==='active'){
+              learning?.beginRequest?.();let timeout;
+              const pending=understanding.handle(body).finally(()=>learning?.endRequest?.());
+              try{const result=await Promise.race([pending,new Promise(resolve=>{timeout=setTimeout(()=>resolve(null),7500);})]);
+                if(result===null)return json(202,{requestId:body.requestId,pending:true,receipt:`/api/understanding/requests/${body.requestId}`});
+                return json(200,result);
+              }finally{clearTimeout(timeout);}
+            }
+            understanding?.observe?.(body);
             if(/^show external results[.!?]?$/i.test(body.text.trim())&&external){const jobs=external.status().jobs.filter(j=>j.text).slice(0,3);return json(200,{conversationId:body.conversationId??`conversation-${body.requestId}`,reply:jobs.length?jobs.map(j=>`${j.service} (${j.status}): ${j.text}`).join('\n\n'):'No verified external result is available. Check the receipt or service setup.'});}
             const service=body.text.trim().match(/^(?:ask|use|search|browse)(?:\s+the)?\s+(chatgpt|codex|claude|antigravity|web)\b/i)?.[1]?.toLowerCase();
             if(service==='web'){
@@ -93,6 +115,11 @@ export function createRequestHandler({engine,workspace,terminal,external,token,p
             }
             const sourceSnapshot=/^(?:show|list) (?:personal )?secretary (tasks|notes|reminders|calendar)[.!?]?$/i.test(body.text.trim())?secretary.snapshot():undefined;
             return json(200,engine.conversation(body.requestId,body.text,body.conversationId,sourceSnapshot));
+          }
+          if(path.startsWith('/api/understanding/')&&learning){
+            const route=path.slice('/api/understanding/'.length);
+            const routes={settings:['PATCH',['requestId','expectedRevision'],['learningEnabled','promotionPaused'],'settings'],feedback:['POST',['requestId','targetRequestId','contextRevision','decision'],['correctedIntent'],'feedback'],remember:['POST',['requestId','targetRequestId','contextRevision'],[],'remember'],forget:['POST',['requestId','preferenceId'],[],'forget'],train:['POST',['requestId'],[],'train'],rollback:['POST',['requestId','expectedModelVersion'],[],'rollback'],'reset/prepare':['POST',['requestId'],[],'prepareReset'],'reset/confirm':['POST',['requestId','resetToken'],[],'confirmReset'],'runtime-state':['PATCH',['clientInstanceId','sequence','voiceState','ttsActive','idleSeconds','lowPowerMode','thermalState'],[],'runtimeState']};
+            const spec=routes[route];if(spec&&req.method===spec[0]){shape(body,spec[1],spec[2]);if(route!=='runtime-state')validId(body.requestId);return json(200,await learning[spec[3]](body));}
           }
           if(path==='/api/settings'&&req.method==='PATCH') {
             shape(body,['expectedRevision','wakePhrase']);
@@ -125,13 +152,14 @@ export function createRequestHandler({engine,workspace,terminal,external,token,p
           throw new Fault('NOT_FOUND','Endpoint not found.',404);
         }
         if(req.method!=='GET')throw new Fault('NOT_FOUND','Endpoint not found.',404);
-        const requested=path==='/kst-logo.png'?'public/kst-logo.png':decodeURIComponent(path)==='/'?'index.html':decodeURIComponent(path).slice(1);
-        if(!['index.html','app.js','styles.css','public/kst-logo.png','public/kst-logo.svg'].includes(requested))throw new Fault('NOT_FOUND','Asset not found.',404);
+        const requested=path==='/kst-logo.png'?'public/kst-logo.png':path==='/kst-icon.png'?'public/kst-icon.png':decodeURIComponent(path)==='/'?'index.html':decodeURIComponent(path).slice(1);
+        if(!['index.html','app.js','styles.css','public/kst-logo.png','public/kst-icon.png','public/kst-logo.svg'].includes(requested))throw new Fault('NOT_FOUND','Asset not found.',404);
         const file=resolve(staticDir,requested),root=realpathSync(staticDir);
         if(!file.startsWith(resolve(staticDir)+sep))throw new Fault('NOT_FOUND','Asset not found.',404);
         let actual;try{actual=realpathSync(file);}catch{throw new Fault('NOT_FOUND','Asset not found.',404);}
         if(!actual.startsWith(root+sep)||!contentTypes[extname(actual)])throw new Fault('NOT_FOUND','Asset not found.',404);
         res.writeHead(200,{...headers,'Content-Type':contentTypes[extname(actual)]});res.end(readFileSync(actual));
-      }catch(error){const known=error instanceof Fault;if(!known)console.error(`[kst] request=${requestId} code=INTERNAL_ERROR`);json(known?error.status:500,{error:{code:known?error.code:'INTERNAL_ERROR',message:known?error.message:'Operation failed. Check local storage and retry after reviewing the failure.',retryable:!known,requestId}});}
+      }catch(error){const known=error instanceof Fault||(typeof error?.code==='string'&&Number.isInteger(error.status)&&error.status>=400&&error.status<=599);if(!known)console.error(`[kst] request=${requestId} code=INTERNAL_ERROR`);json(known?error.status:500,{error:{code:known?error.code:'INTERNAL_ERROR',message:known?error.message:'Operation failed. Check local storage and retry after reviewing the failure.',retryable:!known,requestId}});}
     };
 }
+�

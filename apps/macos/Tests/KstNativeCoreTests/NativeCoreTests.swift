@@ -13,6 +13,10 @@ func rejects(_ action: () throws -> Void) throws {
 
 @main enum NativeChecks {
 static func main() throws {
+    try check(VoiceControl.isStop("Show my tasks stop"), "Coalesced read and Stop cancels the turn")
+    try check(VoiceControl.isStop("stop listening"), "Explicit Stop remains immediate")
+    try check(!VoiceControl.isStop("search web bus stop"), "Search payload containing Stop stays data")
+    try check(!VoiceControl.isStop("note Please stop"), "Note payload containing Stop stays data")
     try testRejectsEmptyWakeAndRemoteEndpoint()
     try testSettingsPersistAndCorruptionFailsExplicitly()
     try testSingletonExcludesSecondOwner()

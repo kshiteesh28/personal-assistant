@@ -1,5 +1,5 @@
 const $ = (id) => document.getElementById(id);
-const state = { token: '', paired: false, settings: null, conversationId: null, generation: 0, pending: null, busy: false, externalWaiting: false };
+const state = { token: '', paired: false, settings: null, conversationId: null, contextRevision: null, learning: null, generation: 0, pending: null, busy: false, externalWaiting: false };
 
 class ApiError extends Error {
   constructor(message, status, requestId = null) {
@@ -38,7 +38,7 @@ async function api(path, { method = 'GET', body, authenticated = true } = {}) {
       }
       throw new ApiError(data.message || data.error?.message || (typeof data.error === 'string' ? data.error : null) || `Request failed (${response.status}).`, response.status, data.error?.requestId || data.requestId || response.headers?.get('X-Request-ID'));
     }
-    return data;
+    return response.status === 202 ? { ...data, pending: true } : data;
   } catch (error) {
     if (error.name === 'AbortError') throw new ApiError('The core did not respond in time. The result may be uncertain; no automatic retry was sent.', 0);
     if (error instanceof ApiError) throw error;
@@ -78,7 +78,11 @@ function disconnect() {
   state.token = '';
   state.paired = false;
   state.settings = null;
+  state.learning = null;state.lastUnderstanding = null;
+  $('learning-preferences')?.replaceChildren();
+  if($('learning-status'))$('learning-status').textContent='Connect to see learning status.';
   state.conversationId = null;
+  state.contextRevision = null;
   state.pending = null;
   state.generation++;
   $('auth-token').value = '';
@@ -333,6 +337,7 @@ async function refresh() {
   await refreshSecretary(token, generation);
   if(state.token===token && state.generation===generation)await refreshWorkspace(token,generation);
   if(state.token===token && state.generation===generation)await refreshExternal(token,generation);
+  if(state.token===token && state.generation===generation)await refreshLearning();
 }
 
 $('pair-form').addEventListener('submit', async (event) => {
@@ -377,16 +382,27 @@ $('chat-form').addEventListener('submit', async (event) => {
   if (!state.token) { status('chat-status', 'Connect your local profile above first.', true); $('auth-token').focus(); return; }
   const generation = state.generation;
   // A manual retry of the same uncertain utterance reuses the request ID.
-  const request = state.pending?.text === text ? state.pending : { requestId: crypto.randomUUID(), text, ...(state.conversationId ? { conversationId: state.conversationId } : {}) };
+  const request = state.pending?.text === text ? state.pending : { requestId: crypto.randomUUID(), text, source: 'typed', ...(state.contextRevision !== null ? {contextRevision:state.contextRevision} : {}), ...(state.conversationId ? { conversationId: state.conversationId } : {}) };
+  if(state.pending && state.pending !== request){status('chat-status','Review or Stop the previous uncertain request before sending different text.',true);return;}
   if (state.pending !== request) message(text, 'user');
   state.pending = request;
   state.busy = true;
   $('send-button').disabled = true;
   status('chat-status', 'Working locally…');
   try {
-    const data = await api('/api/conversation', { method: 'POST', body: request });
+    if(state.pending && state.pending !== request)throw new ApiError('Review or stop the previous uncertain request before sending different text.',409);
+    let data = await api('/api/conversation', { method: 'POST', body: request });
+    for(let attempt=0;data.pending&&attempt<30;attempt++){
+      await new Promise(resolve=>setTimeout(resolve,1000));
+      if(generation!==state.generation)return;
+      const receipt=await api(`/api/understanding/requests/${encodeURIComponent(request.requestId)}`);
+      data=receipt.response || {...receipt,pending:['PREPARED','DISPATCHING'].includes(receipt.state)};
+    }
+    if(data.pending||data.state==='UNKNOWN'||data.executionState==='UNKNOWN')throw new ApiError('The result remains pending or uncertain. Review its receipt before repeating it.',0);
     if (generation !== state.generation) return;
     state.conversationId = data.conversationId;
+    state.contextRevision = data.understanding?.contextRevision ?? null;
+    state.lastUnderstanding = data.understanding;
     state.pending = null;
     $('chat-input').value = '';
     message(data.reply || 'The request finished without a reply. Refresh status for details.');
@@ -394,6 +410,7 @@ $('chat-form').addEventListener('submit', async (event) => {
     try { await refresh(); } catch { status('chat-status', 'Reply received. Status refresh failed; refresh manually.'); }
   } catch (error) {
     if (generation !== state.generation) return;
+    if(error.status===409||error.status===400){state.pending=null;state.contextRevision=null;}
     status('chat-status', `${error.message} Your text is retained. Sending the same text retries its existing request ID.`, true);
   } finally { state.busy = false; $('send-button').disabled = false; }
 });
@@ -405,6 +422,7 @@ $('stop-button').addEventListener('click', async () => {
   const generation = state.generation;
   state.pending = null;
   state.conversationId = null;
+  state.contextRevision = null;
   status('chat-status', 'Stopping this discussion…');
   try {
     const data = await api('/api/stop', { method: 'POST', body: { requestId: crypto.randomUUID() } });
@@ -457,3 +475,41 @@ setInterval(() => {
   api('/health', { authenticated: false }).then(() => connection(true)).catch(() => connection(false));
   if(state.paired && state.externalWaiting)refreshExternal(state.token,state.generation);
 }, 15000);
+
+async function refreshLearning(){
+  if(!$('learning-status'))return;
+  const token=state.token,generation=state.generation;
+  try{
+    const data=await api('/api/understanding/status');if(token!==state.token||generation!==state.generation)return;state.learning=data;
+    $('learning-status').textContent=`${data.mode||'shadow'} · ${data.runtime||'unavailable'} · model ${data.activeVersion??data.modelVersion??0}. ${data.activationReason||data.setupFailure||data.failure?.message||data.reason||data.trainingState||''}`;
+    $('learning-enabled').checked=data.learningEnabled!==false;
+    $('promotion-paused').checked=Boolean(data.promotionPaused);
+    const result=await api('/api/understanding/preferences?limit=10');
+    if(token!==state.token||generation!==state.generation)return;
+    const list=$('learning-preferences');list.replaceChildren();
+    for(const item of result.preferences||result.items||[]){
+      const row=node('div','preference-row');row.append(node('span','',item.preview||(item.template?`${item.template.prefix.join(' ')} <${item.template.slot}> ${item.template.suffix.join(' ')}`:null)||item.label||item.id));
+      const forget=node('button','button quiet','Forget');forget.type='button';forget.onclick=()=>learningAction('forget',{preferenceId:item.id});row.append(forget);list.append(row);
+    }
+  }catch(error){if(token===state.token&&generation===state.generation)$('learning-status').textContent=error.message;}
+}
+async function learningAction(action,body={},method='POST'){
+  const generation=state.generation;
+  try{const data=await api(`/api/understanding/${action}`,{method,body:{requestId:crypto.randomUUID(),...body}});if(generation!==state.generation)return null;$('learning-status').textContent=data.message||'Request recorded.';await refreshLearning();return data;}
+  catch(error){if(generation===state.generation)$('learning-status').textContent=error.message;return null;}
+}
+$('learning-save')?.addEventListener('click',()=>learningAction('settings',{expectedRevision:state.learning?.revision,learningEnabled:$('learning-enabled').checked,promotionPaused:$('promotion-paused').checked},'PATCH'));
+$('learning-train')?.addEventListener('click',()=>learningAction('train'));
+$('learning-rollback')?.addEventListener('click',()=>learningAction('rollback',{expectedModelVersion:state.learning?.activeVersion??state.learning?.modelVersion}));
+$('learning-remember')?.addEventListener('click',async()=>{
+  const targetRequestId=state.lastUnderstanding?.requestId,contextRevision=state.contextRevision,generation=state.generation;
+  try{const preview=await api(`/api/understanding/preview?targetRequestId=${encodeURIComponent(targetRequestId||'')}&contextRevision=${contextRevision}`);
+    if(generation!==state.generation)return;
+    if(window.confirm(`Remember this expression?\n${preview.preview}`))await learningAction('remember',{targetRequestId,contextRevision});
+  }catch(error){if(generation===state.generation)$('learning-status').textContent=error.message;}
+});
+$('learning-reset')?.addEventListener('click',async()=>{const prepared=await learningAction('reset/prepare');if(prepared&&window.confirm('Erase learned expressions and personal training examples? Secretary records remain.'))await learningAction('reset/confirm',{resetToken:prepared.resetToken});});
+
+$('learning-correct')?.addEventListener('click',()=>learningAction('feedback',{targetRequestId:state.lastUnderstanding?.requestId,contextRevision:state.contextRevision,decision:'correct-intent',correctedIntent:$('learning-intent').value}));
+$('learning-confirm')?.addEventListener('click',()=>learningAction('feedback',{targetRequestId:state.lastUnderstanding?.requestId,contextRevision:state.contextRevision,decision:'confirm-intent'}));
+�

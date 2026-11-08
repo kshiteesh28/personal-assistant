@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "sourceSHA256": "9e91694ce321ddc8feaa73e0e64f8b8dfb09a51fe997bbe91d290ea529f7df50",
+  "seedSHA256": "ee69aa7d468782c8bd9fbb2d8f00b3b0ab4e11179e9cb4ea4b5ee454a3bcdb1b",
+  "measuredAt": "2026-11-08T00:39:07.733Z",
+  "node": "v22.23.3",
+  "os": "27.0.0",
+  "arch": "arm64",
+  "runtime": "native",
+  "warmup": 100,
+  "requestsPerRun": 10000,
+  "runs": [
+    {
+      "p50Ms": 0.188541999999984,
+      "p95Ms": 0.41083400000002257,
+      "p99Ms": 0.9540409999999611
+    },
+    {
+      "p50Ms": 0.1913329999997586,
+      "p95Ms": 0.39358400000037363,
+      "p99Ms": 0.6403330000002825
+    },
+    {
+      "p50Ms": 0.19116699999995035,
+      "p95Ms": 0.39262500000040745,
+      "p99Ms": 0.6645840000001044
+    },
+    {
+      "p50Ms": 0.19108299999970768,
+      "p95Ms": 0.38608300000032614,
+      "p99Ms": 0.6357499999994616
+    },
+    {
+      "p50Ms": 0.18858300000101735,
+      "p95Ms": 0.3815839999988384,
+      "p99Ms": 0.6681669999998121
+    }
+  ],
+  "worstP95Ms": 0.41083400000002257,
+  "limitMs": 25,
+  "fixtures": [
+    "show tasks",
+    "show notes",
+    "show reminders",
+    "show calendar",
+    "show timeline",
+    "help",
+    "status",
+    "Don't cancel meeting Review",
+    "schedule meeting Review tomorrow at 3 pm",
+    "remind me to Stretch"
+  ],
+  "scope": "Full coordinator acceptance, normalization, classifier boundary, policy, dialogue, authoritative read lookup, durable receipts and response. Includes bounded read/clarification/negative fixtures. Excludes microphone, TTS, external execution and mutation executor latency.",
+  "operationalLedgerBytes": 70385664,
+  "rssBytes": 149045248,
+  "passed": true
+}
+ëŽ

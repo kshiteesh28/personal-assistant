@@ -165,6 +165,15 @@ export class Engine {
         }});
         return result;
     }
+    lookupRequest(requestId){const prior=this.read().requests[requestId];return prior?.result??null;}
+    proposeExternal(requestId,{service,prompt,conversationId},details){
+        if(!['chatgpt','claude','codex','antigravity'].includes(service)||typeof prompt!=='string'||!prompt.trim()||prompt.length>4000)throw new Fault('INVALID_EXTERNAL','Supply an explicit supported service and prompt.');
+        return this.mutate(state=>this.once(state,requestId,{service,prompt,conversationId},()=>{
+            if(state.approvals.filter(a=>a.status==='pending').length>=20)throw new Fault('APPROVAL_CAPACITY','Resolve an existing request first.',409);
+            const approval={id:randomUUID(),service,prompt,context:details?.context??[],conversationId,scopeHash:details?.scopeHash??null,destination:details?.destination??null,transport:details?.transport??null,model:details?.model??null,configured:details?.configured??false,revision:1,status:'pending',createdAt:new Date(this.clock()).toISOString(),expiresAt:new Date(this.clock()+300000).toISOString()};
+            state.approvals.push(approval);return {conversationId,approval,reply:`May I use ${service} for: “${prompt}”? ${approval.context.join(' ')} Say “approve external request” or “decline external request”.`};
+        }));
+    }
     conversation(requestId, text, conversationId, sourceSnapshot, externalDetails) {
         return this.mutate((state)=>this.once(state, requestId, {
                 text,
