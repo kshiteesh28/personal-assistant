@@ -1,0 +1,836 @@
+{
+  "schemaVersion": 1,
+  "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+  "cases": [
+    {
+      "id": "G01",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G02",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G03",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G04",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G05",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G06",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G07",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G08",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G09",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G10",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G11",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G12",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G13",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G14",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G15",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G16",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G17",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G18",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G19",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G20",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G21",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G22",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G23",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G24",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G25",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G26",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G27",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G28",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G29",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G30",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G31",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G32",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G33",
+      "status": "NOT_RUN",
+      "scenario": "Old ledger decoder opens a migrated profile; cancelled proposal maps to SUPERSEDED and old local requests still replay.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G34",
+      "status": "NOT_RUN",
+      "scenario": "Body-bearing Google voice request; no plaintext body enters operational receipts/logs/learning; encrypted envelope is recoverable only through broker.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G35",
+      "status": "NOT_RUN",
+      "scenario": "External draft edit between final GET and send; outgoing raw bytes equal the confirmed bytes, source draft is retained.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G36",
+      "status": "NOT_RUN",
+      "scenario": "Gmail thread gains a message after preview; invalidate confirmation, never modify that extra message.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G37",
+      "status": "NOT_RUN",
+      "scenario": "Cache cap reached during staging; old snapshot/cursor remains paired or collection becomes query-only, never partial complete.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G38",
+      "status": "NOT_RUN",
+      "scenario": "Rolling Gmail age boundary changes at midnight; daily bootstrap removes expired members and preserves cursor catch-up.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G39",
+      "status": "NOT_RUN",
+      "scenario": "FreeBusy returns one per-calendar error; no “free” result or automatic booking.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G40",
+      "status": "NOT_RUN",
+      "scenario": "Mixed batch success/unknown; stop unstarted children, restart never duplicates successful children.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G41",
+      "status": "NOT_RUN",
+      "scenario": "Crash at each envelope fsync/rename/reference/dispatch/receipt boundary; no admitted write without recoverable identity and no automatic uncertain resend.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G42",
+      "status": "NOT_RUN",
+      "scenario": "OAuth wrong user, omitted refresh token, reused generation or scope reauth; no account mix or old confirmation revival.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G43",
+      "status": "NOT_RUN",
+      "scenario": "Broker wrong peer/capability, oversized frame and stale generation; reject without token leakage.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "G44",
+      "status": "NOT_RUN",
+      "scenario": "Every selected capability subset and API error class maps to typed state/UI; no repeated consent loop.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D01",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D02",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D03",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D04",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D05",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D06",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D07",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D08",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D09",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D10",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D11",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D12",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D13",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D14",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D15",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D16",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D17",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D18",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D19",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D20",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D21",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D22",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D23",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D24",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D25",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D26",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D27",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D28",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D29",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D30",
+      "status": "NOT_RUN",
+      "scenario": "Acceptance case specified in section 27.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D31",
+      "status": "NOT_RUN",
+      "scenario": "Two turns with identical text both insert; repeated final callback from one turn inserts once.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D32",
+      "status": "NOT_RUN",
+      "scenario": "Punctuation/newline/Unicode and inter-segment spacing follow section 25 byte-for-byte.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D33",
+      "status": "NOT_RUN",
+      "scenario": "Finalization gap is displayed and measured; no partial insertion on five-second timeout.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D34",
+      "status": "NOT_RUN",
+      "scenario": "AX set times out; no fallback to CGEvent/paste and no replay.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D35",
+      "status": "NOT_RUN",
+      "scenario": "Re-arm after OS permission dialog/paused state discards old lease and pending segment.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D36",
+      "status": "NOT_RUN",
+      "scenario": "Dictation heartbeat to old core disables feature; v2 dictating/paused/finalizing/inserting prevents training.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D37",
+      "status": "NOT_RUN",
+      "scenario": "Dictation and Google meeting nudge coincide; no TTS/audio overlap, focus theft or duplicate nudge.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D38",
+      "status": "NOT_RUN",
+      "scenario": "Terminal cannot expose stable pane identity/nonsecure state; fail closed with Copy/manual alternative.",
+      "expected": "Meet the plan case exactly with a source-bound test or live procedure.",
+      "observed": "Not run as end-to-end acceptance. Local automated policy/unit coverage is recorded separately and is not counted as a pass.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; case-specific runner not executed.",
+      "artifactSHA256": null
+    },
+    {
+      "id": "D39",
+      "status": "NOT_RUN",
+      "scenario": "With wake listener armed and dictation enabled, “arise, start typing” starts foreground dictation without a per-session button/hotkey.",
+      "expected": "Start phrase is control-only; assistant stops; target is announced; only subsequent finalized speech is inserted.",
+      "observed": "Not run as live voice acceptance. Native command router compiles in the optimized preview; live microphone, permission and target typing were not exercised.",
+      "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+      "runner": "See KST-0.6-GOOGLE-SYNC-AND-DICTATION-PLAN.md section 27; live procedure not executed.",
+      "artifactSHA256": null
+    }
+  ]
+}

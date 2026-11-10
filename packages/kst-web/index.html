@@ -60,6 +60,15 @@
           <h3>Scheduling proposal</h3><div id="workspace-plan" class="section-copy">No proposal loaded.</div>
           <h3>Notifications</h3><div id="workspace-notifications"></div>
         </section>
+        <section id="google-workspace" class="panel" aria-labelledby="google-title">
+          <div class="panel-heading"><div><p class="eyebrow">YOUR CONNECTED WORKSPACE</p><h2 id="google-title">Google Gmail & Calendar</h2></div><button id="google-refresh" class="button quiet" type="button">Refresh Google</button></div>
+          <p id="google-status" class="section-copy" role="status">Connect the local profile to inspect Google setup.</p>
+          <div class="quick-actions"><label><input id="google-compose" type="checkbox" /> Draft and send mail</label><label><input id="google-modify" type="checkbox" /> Mail labels and trash</label><label><input id="google-calendar-write" type="checkbox" /> Calendar changes</label></div>
+          <p class="section-copy">Connection requests Gmail and Calendar reads by default. Selected writes need Google consent and a separate preview for each action.</p>
+          <div class="approval-actions"><button id="google-connect" class="button secondary" type="button">Connect / update Google permissions</button><button id="google-disconnect" class="button quiet" type="button">Disconnect Google</button></div>
+          <form id="google-settings-form"><label><input id="google-enabled" type="checkbox" /> Enable Google sync and actions</label><div id="google-calendars"></div><label for="google-default">Default owned calendar</label><select id="google-default"><option value="">Ask me</option></select><label for="google-destination">Unqualified meeting destination</label><select id="google-destination"><option value="ask">Ask me</option><option value="local">Local secretary</option><option value="google">Google Calendar</option></select><label><input id="google-nudges" type="checkbox" /> Notify me ten minutes before Google meetings</label><button class="button secondary" type="submit">Save Google preferences</button></form>
+          <p id="google-freshness" class="section-copy"></p><h3>Action review & receipts</h3><div id="google-operations"></div><div id="google-preview" class="section-copy" aria-live="polite"></div>
+        </section>
         <section id="terminal-workspace" class="panel" aria-labelledby="terminal-title">
           <div class="panel-heading"><div><p class="eyebrow">SUPERVISED WORK</p><h2 id="terminal-title">Terminal jobs</h2></div><button id="terminal-inventory" class="button quiet" type="button">Read iTerm sessions</button></div>
           <p id="terminal-status" class="section-copy">Vetted project recipes run under explicit ownership. Existing iTerm panes are observed only on request.</p><div id="terminal-recipes"></div><div id="terminal-jobs"></div><pre id="terminal-sessions" class="section-copy"></pre>

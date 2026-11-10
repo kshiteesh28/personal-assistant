@@ -14,4 +14,3 @@ export function preserveAutomaticPolicy(candidate,seed,gates,predictor=predict) 
   let changes=0;for(let label=0;label<32;label++){if(Boolean(candidate.policies[label]?.automaticEnabled)!==Boolean(policies[label].automaticEnabled))changes++;}
   candidate.policies=policies;return {disabledClasses:policies.slice(0,27).filter((p,i)=>seed.policies[i].automaticEnabled&&!p.automaticEnabled).length,policyChanges:changes};
 }
-ëŽ

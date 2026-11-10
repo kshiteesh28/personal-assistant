@@ -16,7 +16,7 @@ const help = `kst development commands (Node 22+):
   node scripts/kst.mjs package-mac Build locally signed kst.app
 
 Start the native app separately using apps/macos instructions.
-The first release uses an isolated kst-dev data profile.
+The current preview uses an isolated kst-dev data profile. Google needs the native broker and local OAuth configuration.
 `;
 
 function run(binary, args, cwd = root) {
@@ -53,7 +53,7 @@ if (command === 'start') {
   console.log(`Swift: ${swift.status === 0 ? swift.stdout.trim().split('\n')[0] : 'unavailable'}`);
   console.log(`Full Xcode: ${existsSync('/Applications/Xcode.app') ? 'present' : 'not installed; command-line Swift development build is supported'}`);
   console.log('Native: arise phrase gate, on-device speech, coarse activity and notices implemented; hardware/offline/performance validation pending.');
-  console.log('Terminal: vetted managed recipes and explicit iTerm inventory/display. Existing-pane writes remain disabled.');
+  console.log('Terminal: vetted managed recipes and explicit iTerm inventory/display. Native dictation can type literal text into supported armed iTerm prompts; terminal submission remains disabled.');
   console.log('External providers: approval-gated OpenAI/Claude APIs, scoped read-only Codex CLI, and browser search. Explicit account/model setup and live validation are required; no fallback.');
 } else if (command === 'test') {
   let result = await run(process.execPath, ['--test', '--test-reporter=spec'], join(root, 'packages/kst-core'));

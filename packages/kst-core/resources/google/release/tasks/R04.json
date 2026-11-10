@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "taskId": "R04",
+  "implementationStatus": "IMPLEMENTED",
+  "releaseStatus": "BLOCKED",
+  "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+  "implementationDelivered": true,
+  "reason": "Live speech/latency/resource checks were not run.",
+  "evidence": {
+    "automatedCheckLog": "packages/kst-core/resources/google/release/automated-checks.json",
+    "caseEvidence": "packages/kst-core/resources/google/release/case-evidence.json"
+  },
+  "status": "PASSED"
+}

@@ -21,4 +21,3 @@ export function validateReleaseReadiness(resourceDir,seed){
   return true;
  }catch{return false;}
 }
-ë

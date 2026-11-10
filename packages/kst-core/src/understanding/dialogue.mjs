@@ -5,4 +5,3 @@ export class Discussions{
  transition(c,state,patch={}){const next={...c,...patch,state,revision:c.revision+1,touched:this.now()};if(Buffer.byteLength(JSON.stringify(next))>2048)throw new Fault('CONTEXT_CAPACITY','Discussion context is full. Start a new discussion.',409);Object.assign(c,next);return c;}
  stop(id){for(const c of this.contexts.values())if(!id||c.id===id){c.generation++;c.revision++;c.state='IDLE';delete c.pendingRequest;delete c.question;delete c.choices;delete c.templateTarget;delete c.lastResult;delete c.lastConfirmed;delete c.lastOperation;delete c.lastPlan;}}
 }
-ëŽ

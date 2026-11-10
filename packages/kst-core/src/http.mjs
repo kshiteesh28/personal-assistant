@@ -2,6 +2,8 @@ import { readFileSync, realpathSync } from 'node:fs';
 import { resolve, extname, sep } from 'node:path';
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 import { Fault } from './engine.mjs';
+import { decodeStrictJSON } from './wire-json.mjs';
+import {createGoogleConversationAdmission} from './google-conversation-admission.mjs';
 
 const string=(v,min=1,max=4000)=>typeof v==='string'&&v.trim().length>=min&&v.length<=max;
 function shape(body, required, optional=[]) {
@@ -11,11 +13,17 @@ function validId(id) {if(!string(id,8,128)||!/^[\w-]+$/.test(id))throw new Fault
 const contentTypes={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.ico':'image/x-icon'};
 
 // Transport-independent handler: the same implementation serves sockets and deterministic tests.
-export function createRequestHandler({engine,workspace,terminal,external,understanding,learning,token,port,staticDir,getActualPort=()=>port,secretary={snapshot:()=>({status:'disabled',data:{tasks:[],notes:[],reminders:[],calendar:[]}})}}) {
+export function createRequestHandler({engine,workspace,terminal,external,understanding,learning,google,token,port,staticDir,getActualPort=()=>port,secretary={snapshot:()=>({status:'disabled',data:{tasks:[],notes:[],reminders:[],calendar:[]}})}}) {
     const secret=Buffer.from(token);
+    const googleConversation=createGoogleConversationAdmission(google);
     const origins=new Set([`http://127.0.0.1:${port}`,`http://localhost:${port}`]);
     const activeJobs=()=>[...(terminal?.status?.().jobs??[]),...(external?.status?.().jobs??[])].filter(j=>['prepared','running','cancelling'].includes(j.status)).slice(0,100);
-    const stopAll=async(requestId)=>{const receipt=engine.stop(requestId,activeJobs().map(j=>j.id));workspace?.endConversation();understanding?.stop();learning?.cancel?.('stop');const jobs=await Promise.all((receipt.jobIds??[]).map(async id=>{try{return id.startsWith('external-')?external.cancel(id):await terminal.cancel(id);}catch{return {id,status:'unknown',message:'Cancellation could not be verified. Review the job receipt before retrying.'};}}));return {...receipt,jobs,reply:jobs.length?`Stop requested. ${jobs.map(j=>`Job ${j.id}: ${j.status}`).join('; ')}`:'Stopped. Pending requests cancelled; no owned jobs were running.'};};
+    const stopAll=async(requestId)=>{const receipt=engine.stop(requestId,activeJobs().map(j=>j.id));workspace?.endConversation();understanding?.stop();google?.stop?.();googleConversation.stop();learning?.cancel?.('stop');const jobs=await Promise.all((receipt.jobIds??[]).map(async id=>{try{return id.startsWith('external-')?external.cancel(id):await terminal.cancel(id);}catch{return {id,status:'unknown',message:'Cancellation could not be verified. Review the job receipt before retrying.'};}}));return {...receipt,jobs,reply:jobs.length?`Stop requested. ${jobs.map(j=>`Job ${j.id}: ${j.status}`).join('; ')}`:'Stopped. Pending requests cancelled; no owned jobs were running.'};};
+    const rejectGoogleRequestReuse=id=>{
+      if(!engine.db?.prepare("SELECT name FROM sqlite_schema WHERE name='understanding_requests'").get())return;
+      const prior=engine.db.prepare('SELECT path FROM understanding_requests WHERE request_id=?').get(id);
+      if(prior?.path?.startsWith('/api/google/'))throw new Fault('IDEMPOTENCY_CONFLICT','Request ID belongs to an existing Google operation.',409);
+    };
     const decide=(id,decision,revision)=>{
       const result=engine.approval(id,decision,revision,{dispatch:Boolean(external)});
       if(!external||result.approval.status!=='approved')return result;
@@ -34,10 +42,12 @@ export function createRequestHandler({engine,workspace,terminal,external,underst
         if(!expectedHosts.has(req.headers.host))throw new Fault('HOST_REJECTED','Unsupported local host.',403);
         if(req.headers.origin&&!origins.has(req.headers.origin)&&!new Set([`http://127.0.0.1:${actualPort}`,`http://localhost:${actualPort}`]).has(req.headers.origin))throw new Fault('ORIGIN_REJECTED','This origin is not paired.',403);
         const url=new URL(req.url,`http://${req.headers.host}`),path=url.pathname;
-        if(req.method==='GET'&&path==='/health')return json(200,{app:'kst',status:'ok',mode:workspace?'secretary':'scratch',version:'0.5.0',uptimeSeconds:Math.floor(process.uptime())});
+        if(req.method==='GET'&&path==='/health')return json(200,{app:'kst',status:'ok',mode:workspace?'secretary':'scratch',version:'0.6.0-preview.1',capabilities:{runtimeStateV2:true,google:!!google,dictationProtocol:1},uptimeSeconds:Math.floor(process.uptime())});
         if(path.startsWith('/api/')) {
           const incoming=Buffer.from((req.headers.authorization??'').replace(/^Bearer /,''));
           if(incoming.length!==secret.length||!timingSafeEqual(incoming,secret))throw new Fault('UNAUTHORIZED','Pair this interface using the private local token.',401);
+          if(req.method==='GET'&&path.startsWith('/api/google/requests/'))return json(200,googleConversation.receipt(decodeURIComponent(path.slice('/api/google/requests/'.length))));
+          if(req.method==='GET'&&path.startsWith('/api/google/')&&google){const result=await google.route(req.method,path,null);if(result)return json(result.status,result.body);}
           if(req.method==='GET'&&path==='/api/secretary')return json(200,secretary.snapshot());
           if(req.method==='GET'&&path==='/api/secretary/workspace'&&workspace){workspace.tick();return json(200,workspace.snapshot());}
           if(req.method==='GET'&&path==='/api/notifications'&&workspace){if(terminal)workspace.observeJobs(terminal.status().jobs);workspace.tick();return json(200,{notifications:workspace.notifications()});}
@@ -67,13 +77,17 @@ export function createRequestHandler({engine,workspace,terminal,external,underst
           if(!['POST','PATCH'].includes(req.method))throw new Fault('NOT_FOUND','Endpoint not found.',404);
           if(!req.headers['content-type']?.startsWith('application/json'))throw new Fault('CONTENT_TYPE','Use application/json.',415);
           let bytes=0,parts=[];
-          for await(const part of req){bytes+=part.length;if(bytes>32768)throw new Fault('BODY_TOO_LARGE','Request body exceeds 32 KB.',413);parts.push(part);}
-          let body;try{body=JSON.parse(Buffer.concat(parts).toString('utf8'));}catch{throw new Fault('INVALID_JSON','Malformed JSON.');}
+          for await(const part of req){bytes+=part.length;if(bytes>(path.startsWith('/api/google/')?65536:32768))throw new Fault('BODY_TOO_LARGE','Request body exceeds its size limit.',413);parts.push(part);}
+          const body=decodeStrictJSON(Buffer.concat(parts));
+          if(path==='/api/runtime-state/v2'&&req.method==='PATCH'&&learning){const accepted=learning.runtimeStateV2(body);if(accepted.accepted)google?.activity?.(body);return json(200,accepted);}
+          if(path.startsWith('/api/google/')&&google){const result=req.method==='POST'&&['/api/google/actions','/api/google/search'].includes(path)?await googleConversation.handleRoute(req.method,path,body):await google.route(req.method,path,body);if(result)return json(result.status,result.body);}
           if(path==='/api/conversation'&&req.method==='POST') {
             shape(body,['requestId','text'],['conversationId','contextRevision','source']);validId(body.requestId);
             if(!string(body.text)||body.conversationId!==undefined&&!string(body.conversationId,1,128))throw new Fault('INVALID_TEXT','A nonempty command up to 4,000 characters is required.');
             if(body.contextRevision!==undefined&&(!Number.isSafeInteger(body.contextRevision)||body.contextRevision<0)||body.source!==undefined&&!['voice','typed'].includes(body.source))throw new Fault('INVALID_CONTEXT','Supply a nonnegative context revision and voice or typed source.');
             if(/^stop[.!?]?$/i.test(body.text.trim()))return json(200,{...await stopAll(body.requestId),conversationId:body.conversationId??`conversation-${body.requestId}`});
+            if(google){const cloud=await googleConversation.handle(body);if(cloud!==null)return json(cloud.pending?202:200,cloud);}
+            rejectGoogleRequestReuse(body.requestId);
             if(understanding?.status?.().mode!=='active'&&/^(?:hello|hi)[.!?]?$/i.test(body.text.trim()))return json(200,{conversationId:body.conversationId??`conversation-${body.requestId}`,reply:'Iâ€™m here. What would you like to do?'});
             if(understanding?.status?.().mode!=='active'&&/^status[.!?]?$/i.test(body.text.trim()))return json(200,{conversationId:body.conversationId??`conversation-${body.requestId}`,reply:`Local core connected. ${workspace?'Secretary tasks, notes, reminders, meetings, planning and timeline are available. ':''}${terminal?'Reviewed terminal recipes are available. ':''}${external?'ChatGPT, Claude and Codex require your approval; web opens Chrome Incognito directly. ':''}Voice and activity permissions are managed in the Mac app.`});
             const externalDecision=body.text.trim().match(/^(approve|decline) external request[.!?]?$/i);
@@ -133,7 +147,7 @@ export function createRequestHandler({engine,workspace,terminal,external,underst
           }
           if(/^\/api\/external\/jobs\/[\w-]+\/cancel$/.test(path)&&req.method==='POST'&&external){shape(body,['requestId']);validId(body.requestId);return json(200,external.cancel(path.split('/').at(-2)));}
           if(path==='/api/stop'&&req.method==='POST'){shape(body,['requestId']);validId(body.requestId);return json(200,await stopAll(body.requestId));}
-          if(path==='/api/secretary/actions'&&req.method==='POST'&&workspace){shape(body,['requestId','action']);validId(body.requestId);return json(200,workspace.action(body.requestId,body.action));}
+          if(path==='/api/secretary/actions'&&req.method==='POST'&&workspace){shape(body,['requestId','action']);validId(body.requestId);rejectGoogleRequestReuse(body.requestId);return json(200,workspace.action(body.requestId,body.action));}
           if(path==='/api/activity'&&req.method==='POST'&&workspace){
             shape(body,['requestId','activeMinutes','idleSeconds','locked'],['inMeeting','quietHours','appBundleId']);validId(body.requestId);
             if(!Number.isFinite(body.activeMinutes)||body.activeMinutes<0||body.activeMinutes>1440||!Number.isFinite(body.idleSeconds)||body.idleSeconds<0||body.idleSeconds>86400||typeof body.locked!=='boolean'||['inMeeting','quietHours'].some(k=>body[k]!==undefined&&typeof body[k]!=='boolean')||body.appBundleId!==undefined&&!string(body.appBundleId,1,200))throw new Fault('INVALID_ACTIVITY','Supply bounded activity measurements and boolean interruption state.');
@@ -162,4 +176,3 @@ export function createRequestHandler({engine,workspace,terminal,external,underst
       }catch(error){const known=error instanceof Fault||(typeof error?.code==='string'&&Number.isInteger(error.status)&&error.status>=400&&error.status<=599);if(!known)console.error(`[kst] request=${requestId} code=INTERNAL_ERROR`);json(known?error.status:500,{error:{code:known?error.code:'INTERNAL_ERROR',message:known?error.message:'Operation failed. Check local storage and retry after reviewing the failure.',retryable:!known,requestId}});}
     };
 }
-ëŽ

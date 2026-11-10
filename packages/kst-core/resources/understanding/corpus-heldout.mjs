@@ -29,4 +29,3 @@ export const heldoutActionPhrases = [
  ['which requests are supported here','explain the available assistant functions','what kinds of work can I ask you to do','give me a guide to supported operations','list the things this assistant knows how to handle','tell me how to make requests successfully'],
  ['is the local core responding properly','what is the health of your adapters','give me an overview of service readiness','check whether your local services are available','tell me if the assistant core is healthy','what operational state is the assistant in']
 ];
-ëŽ

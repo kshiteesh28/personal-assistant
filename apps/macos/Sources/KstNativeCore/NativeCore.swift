@@ -19,9 +19,17 @@ public enum NativeFailure: Error, LocalizedError {
 
 public struct NativeSettings: Codable, Equatable, Sendable {
     public var spokenReplies: Bool
+    public var dictationEnabled: Bool
 
-    public init(spokenReplies: Bool = true) {
+    public init(spokenReplies: Bool = true, dictationEnabled: Bool = false) {
         self.spokenReplies = spokenReplies
+        self.dictationEnabled = dictationEnabled
+    }
+    private enum CodingKeys: String, CodingKey { case spokenReplies, dictationEnabled }
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        spokenReplies = try values.decodeIfPresent(Bool.self, forKey: .spokenReplies) ?? true
+        dictationEnabled = try values.decodeIfPresent(Bool.self, forKey: .dictationEnabled) ?? false
     }
 
     public func validated() throws -> NativeSettings {

@@ -4,3 +4,7 @@
 .source-columns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;margin-top:20px}.source-status{font-size:12px;color:#535c4d;line-height:1.7;margin:0}.source-status.error-text{color:var(--error)}.source-freshness{color:var(--muted);font-size:10px;line-height:1.7;margin:8px 0 0}.source-item{border-top:1px solid var(--border);padding:12px 0;overflow-wrap:anywhere}.source-item strong{display:block;font-size:12px;font-weight:500;margin-bottom:4px}.source-item p{font-size:10px;color:var(--muted);margin:3px 0 8px}.source-item .pill{display:inline-block}@media(max-width:900px){.source-columns{grid-template-columns:1fr}}
 .brand img{width:64px;height:28px;object-fit:contain;border-radius:0;background:transparent}.hero-mark img{width:200px;height:90px;object-fit:contain;border-radius:0;box-shadow:none;background:transparent}.quick-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}#workspace-plan,#terminal-sessions{white-space:pre-wrap;overflow-wrap:anywhere}#terminal-recipes{overflow-wrap:anywhere}
 .provider-result{white-space:pre-wrap;overflow-wrap:anywhere;max-height:28rem;overflow:auto;font:inherit;font-size:12px;line-height:1.65}
+
+.google-message-preview { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 24rem; overflow: auto; font: inherit; background: var(--surface, #faf6ed); padding: 1rem; border-radius: .5rem; }
+#google-settings-form { display: grid; gap: .7rem; margin: 1rem 0; }
+#google-calendars { display: grid; gap: .4rem; }

@@ -78,6 +78,7 @@ export class Workspace {
       CREATE TABLE IF NOT EXISTS kst_notifications(id TEXT PRIMARY KEY,kind TEXT NOT NULL,entity_id TEXT,title TEXT NOT NULL,message TEXT NOT NULL,created_ts INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'pending',snooze_ts INTEGER);
       CREATE TABLE IF NOT EXISTS kst_activity(id TEXT PRIMARY KEY,payload TEXT NOT NULL,observed_ts INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS kst_delivery_keys(id TEXT PRIMARY KEY,created_ts INTEGER NOT NULL);
+      CREATE TABLE IF NOT EXISTS google_nudge_links(dedupe_key TEXT PRIMARY KEY,account_id TEXT NOT NULL,account_generation INTEGER NOT NULL,calendar_id TEXT NOT NULL,event_id TEXT NOT NULL,start_ts INTEGER NOT NULL,end_ts INTEGER NOT NULL,title TEXT NOT NULL,active INTEGER NOT NULL,source_version TEXT NOT NULL,observed_ts INTEGER NOT NULL);
       INSERT OR IGNORE INTO kst_delivery_keys SELECT id,created_ts FROM kst_notifications;`);
     if(!sourceWrite)chmodSync(path,0o600);
   }
@@ -133,11 +134,30 @@ export class Workspace {
   reserved(){return this.db.prepare("SELECT payload FROM kst_plans WHERE status='applied'").all().flatMap(p=>JSON.parse(p.payload).blocks.map(b=>({start_ts:Date.parse(b.startAt),end_ts:Date.parse(b.endAt)}))).filter(b=>b.end_ts>this.now());}
   notification(id,requestId,decision,minutes){return this.tx(()=>this.once(requestId,{id,decision,minutes:minutes??null},()=>{const row=this.db.prepare('SELECT id FROM kst_notifications WHERE id=?').get(id);if(!row)fault('Notification not found.','NOT_FOUND',404);if(decision==='acknowledge')this.db.prepare("UPDATE kst_notifications SET status='acknowledged' WHERE id=?").run(id);else if(decision==='snooze'&&[15,30,60].includes(minutes))this.db.prepare("UPDATE kst_notifications SET status='snoozed',snooze_ts=? WHERE id=?").run(this.now()+minutes*60000,id);else fault('Choose acknowledge or snooze for 15, 30 or 60 minutes.');return {notification:{id,status:decision==='acknowledge'?'acknowledged':'snoozed'}};}));}
   emit(id,kind,entityId,title,message){if(this.db.prepare('INSERT OR IGNORE INTO kst_delivery_keys VALUES(?,?)').run(id,this.now()).changes)return this.db.prepare('INSERT OR IGNORE INTO kst_notifications(id,kind,entity_id,title,message,created_ts) VALUES(?,?,?,?,?,?)').run(id,kind,entityId,title,message,this.now());return {changes:0};}
+  observeGoogleCalendar(snapshot={}) {
+    return this.tx(()=>{
+      this.db.exec('UPDATE google_nudge_links SET active=0');
+      const {accountId,generation,enabled,complete,events}=snapshot;
+      if(enabled&&complete&&typeof accountId==='string'&&Number.isSafeInteger(generation)&&Array.isArray(events)) {
+        if(events.length>1000)fault('Cloud nudge snapshot exceeds its limit.');
+        const upsert=this.db.prepare('INSERT INTO google_nudge_links VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(dedupe_key) DO UPDATE SET account_generation=excluded.account_generation,end_ts=excluded.end_ts,title=excluded.title,active=1,source_version=excluded.source_version,observed_ts=excluded.observed_ts');
+        for(const item of events){const e=item.resource??item;const calendarId=item.calendarId??e.calendarId;const at=Date.parse(e.start?.dateTime),end=Date.parse(e.end?.dateTime);if(!calendarId||!e.id||!Number.isFinite(at)||!Number.isFinite(end)||end<=at||e.status==='cancelled'||e.transparency==='transparent'||e.attendees?.some(a=>a.self&&a.responseStatus==='declined'))continue;
+          const identity=hash([accountId,calendarId,e.id,e.originalStartTime?.dateTime??e.start.dateTime,10]);
+          upsert.run(identity,accountId,generation,calendarId,e.id,at,end,String(e.summary??'Google meeting').slice(0,256),1,String(e.etag??''),this.now());
+        }
+      }
+      this.db.prepare("UPDATE kst_notifications SET status='acknowledged' WHERE kind='google-meeting' AND entity_id IN (SELECT dedupe_key FROM google_nudge_links WHERE active=0)").run();
+      this.db.prepare('DELETE FROM google_nudge_links WHERE end_ts<?').run(this.now()-30*86400000);
+      return {accepted:true};
+    });
+  }
+  googleMeeting(now=this.now()){return this.db.prepare('SELECT dedupe_key FROM google_nudge_links WHERE active=1 AND observed_ts>? AND start_ts<=? AND end_ts>? LIMIT 1').get(now-180000,now,now);}
   tick(){return this.tx(()=>{const now=this.now();this.db.prepare('DELETE FROM kst_notifications WHERE created_ts<? AND (status=? OR status=?)').run(now-30*86400000,'acknowledged','pending');const emit=(id,kind,entityId,title,message)=>this.emit(id,kind,entityId,title,message);
     for(const r of this.db.prepare("SELECT * FROM reminders WHERE (status='active' AND trigger_ts<=?) OR (status='snoozed' AND snooze_until_ts<=?) LIMIT 500").all(now,now)){const at=r.snooze_until_ts??r.trigger_ts;emit(`reminder:${r.id}:${at}`,'reminder',r.id,r.title,'Reminder due.');if(!r.repeat_rule)this.db.prepare("UPDATE reminders SET status='dismissed',updated_at=? WHERE id=?").run(now,r.id);}
     for(const e of this.db.prepare('SELECT * FROM events WHERE start_ts>? AND start_ts<=?').all(now,now+600000))emit(`meeting:${e.id}:${e.start_ts}`,'meeting',e.id,e.title,`Meeting starts at ${iso(e.start_ts)}.`);
     const recent=this.db.prepare('SELECT payload FROM kst_activity WHERE observed_ts>? ORDER BY observed_ts DESC,rowid DESC LIMIT 1').get(now-120000),activity=recent?JSON.parse(recent.payload):null;
-    const meeting=this.db.prepare('SELECT id FROM events WHERE start_ts<=? AND end_ts>? LIMIT 1').get(now,now);
+    const meeting=this.db.prepare('SELECT id FROM events WHERE start_ts<=? AND end_ts>? LIMIT 1').get(now,now)||this.googleMeeting(now);
+    if(activity&&!activity.locked&&!activity.quietHours&&!activity.inMeeting&&!meeting){for(const e of this.db.prepare('SELECT * FROM google_nudge_links WHERE active=1 AND observed_ts>? AND start_ts>? AND start_ts<=?').all(now-180000,now,now+600000))emit(`google-meeting:${e.dedupe_key}`,'google-meeting',e.dedupe_key,e.title,`Google meeting starts at ${iso(e.start_ts)}.`);}
     const ordinary=this.db.prepare("SELECT created_ts FROM kst_notifications WHERE kind IN ('break','checkpoint') AND created_ts>? ORDER BY created_ts DESC").all(now-3600000);
     if(activity&&!activity.locked&&!activity.quietHours&&!activity.inMeeting&&!meeting&&ordinary.length<2&&(!ordinary[0]||now-ordinary[0].created_ts>=1200000)){
       for(const p of this.db.prepare("SELECT id,payload FROM kst_plans WHERE status='applied' ORDER BY created_ts DESC LIMIT 10").all()){
@@ -148,7 +168,7 @@ export class Workspace {
     return this.notifications();});}
   observeJobs(jobs){return this.tx(()=>{let count=0;for(const job of jobs??[]){if(count>=5)break;if(!['succeeded','failed','unknown'].includes(job.status)||!job.id||!Number.isFinite(Date.parse(job.updatedAt??job.createdAt))||this.now()-Date.parse(job.updatedAt??job.createdAt)>900000)continue;const result=this.emit(`job:${job.id}:${job.status}`,'job',job.id,`Project job ${job.status}`,job.status==='succeeded'?'Your managed project job finished. Open its receipt to review the output.':'Your managed project job needs attention. Open its receipt; no automatic retry was started.');count+=Number(result.changes);}return this.notifications();});}
   activity(requestId,payload){return this.tx(()=>this.once(requestId,payload,()=>{const now=this.now();this.db.prepare('INSERT INTO kst_activity VALUES(?,?,?)').run(requestId,JSON.stringify(payload),now);this.db.prepare('DELETE FROM kst_domain_requests WHERE id IN (SELECT id FROM kst_activity WHERE observed_ts<?)').run(now-86400000);this.db.prepare('DELETE FROM kst_activity WHERE observed_ts<?').run(now-86400000);
-    const meeting=Boolean(this.db.prepare('SELECT id FROM events WHERE start_ts<=? AND end_ts>? LIMIT 1').get(now,now));
+    const meeting=Boolean(this.db.prepare('SELECT id FROM events WHERE start_ts<=? AND end_ts>? LIMIT 1').get(now,now)||this.googleMeeting(now));
     if(!payload.locked&&!payload.inMeeting&&!payload.quietHours&&!meeting&&payload.idleSeconds<300&&payload.activeMinutes>=60){const recent=this.db.prepare("SELECT created_ts FROM kst_notifications WHERE kind IN ('break','checkpoint') AND created_ts>? ORDER BY created_ts DESC").all(now-3600000);if(recent.length<2&&(!recent[0]||now-recent[0].created_ts>=1200000))this.emit(`break:${Math.floor(now/3600000)}`,'break',null,'Time for a break','You have been active for an hour. Take a short break?');}
     return {accepted:true,inMeeting:meeting,notificationCount:this.notifications().length};}));}
   endConversation(conversationId){const pending=conversationId?this.db.prepare('SELECT pending FROM kst_dialogue WHERE id=?').all(conversationId):this.db.prepare('SELECT pending FROM kst_dialogue').all();for(const row of pending){const p=JSON.parse(row.pending);if(p.slot==='confirm')this.db.prepare("UPDATE kst_plans SET status='cancelled' WHERE id=? AND status='proposed'").run(p.operation.planId);}if(conversationId)this.db.prepare('DELETE FROM kst_dialogue WHERE id=?').run(conversationId);else this.db.exec('DELETE FROM kst_dialogue');}

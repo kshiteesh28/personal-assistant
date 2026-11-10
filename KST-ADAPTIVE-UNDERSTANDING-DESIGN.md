@@ -779,4 +779,3 @@ The user selected a single male Apple voice at a medium pace. The native app res
 ## User-authorized local preview activation amendment
 
 The user explicitly requested activation before completion of the release gates. An owned private `understanding-activation.json` may contain `userRequestedPreview=true` alongside the existing active-mode/source-hash fields. With a valid seed, this enables the shared ML coordinator and explicit-feedback learning locally. `releaseReady` remains false and status identifies `activationKind=user-preview`. Automatic model-only read/web policy is disabled in this preview; inferred mutations retain bound confirmation, recipe restrictions and provider approvals. Without this explicit setting, the normal release gate remains authoritative.
-ëŽ

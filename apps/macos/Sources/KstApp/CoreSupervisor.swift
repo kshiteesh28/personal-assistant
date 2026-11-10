@@ -8,6 +8,7 @@ final class CoreSupervisor: ObservableObject {
     private var launches = 0
     private var nextLaunch = 0.0
     private var stopping = false
+    var brokerBootstrap: Data?
 
     func ensureRunningIfConfigured() {
         guard !stopping, child?.isRunning != true else { return }
@@ -36,7 +37,9 @@ final class CoreSupervisor: ObservableObject {
            let resources = Bundle.main.resourceURL {
             process.environment?["KST_UNDERSTANDING_ADDON_PATH"] = resources.appendingPathComponent(addon).path
         }
-        process.standardInput = FileHandle.nullDevice
+        let bootstrapPipe: Pipe?
+        if brokerBootstrap != nil { let pipe = Pipe(); bootstrapPipe = pipe; process.standardInput = pipe }
+        else { bootstrapPipe = nil; process.standardInput = FileHandle.nullDevice }
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice
         process.terminationHandler = { [weak self] terminated in
@@ -49,8 +52,19 @@ final class CoreSupervisor: ObservableObject {
         do {
             try process.run()
             child = process
+            if let bootstrapPipe, let brokerBootstrap {
+                try bootstrapPipe.fileHandleForWriting.write(contentsOf: brokerBootstrap + Data([10]))
+                try bootstrapPipe.fileHandleForWriting.close()
+            }
+            child = process
             status = "Starting the local core (attempt \(launches)/3)â€¦"
-        } catch { status = "Core process could not start. Check local execution permissions and configured runtime paths." }
+        } catch {
+            try? bootstrapPipe?.fileHandleForWriting.close()
+            try? bootstrapPipe?.fileHandleForReading.close()
+            if process.isRunning { process.terminate() }
+            child = nil
+            status = "Core process or private broker pairing could not start. Check local execution permissions and configured runtime paths."
+        }
     }
 
     func markHealthy() { status = child?.isRunning == true ? "Local core supervised by kst" : "Attached to an existing local core" }
@@ -60,4 +74,3 @@ final class CoreSupervisor: ObservableObject {
         child = nil
     }
 }
-ëŽ

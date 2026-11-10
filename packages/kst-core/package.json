@@ -2,6 +2,8 @@
   "name": "@kst/core",
   "private": true,
   "type": "module",
-  "scripts": { "start": "node src/server.mjs", "test": "node --test test/*.test.mjs test/understanding/*.test.mjs" }
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/*.test.mjs test/understanding/*.test.mjs test/google/*.test.mjs"
+  }
 }
-ë

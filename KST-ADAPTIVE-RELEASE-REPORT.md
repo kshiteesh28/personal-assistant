@@ -68,4 +68,3 @@ The activation command runs checks and refuses activation while any required gat
 The rebuilt app is `apps/macos/build/kst.app`. Quit and reopen it normally to load build12 and restart its owned core. No GitHub push occurred.
 
 Raw evidence: `resources/understanding/{release-readiness,release-corpus-report,adaptation-report,storage-release-report,conformance-report,coordinator-benchmark,regression-report}.json` under `packages/kst-core`.
-ëŽ

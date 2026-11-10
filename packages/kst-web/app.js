@@ -78,7 +78,8 @@ function disconnect() {
   state.token = '';
   state.paired = false;
   state.settings = null;
-  state.learning = null;state.lastUnderstanding = null;
+  state.learning = null;state.lastUnderstanding = null;state.google = null;
+  $('google-operations')?.replaceChildren();$('google-preview')?.replaceChildren();
   $('learning-preferences')?.replaceChildren();
   if($('learning-status'))$('learning-status').textContent='Connect to see learning status.';
   state.conversationId = null;
@@ -338,6 +339,7 @@ async function refresh() {
   if(state.token===token && state.generation===generation)await refreshWorkspace(token,generation);
   if(state.token===token && state.generation===generation)await refreshExternal(token,generation);
   if(state.token===token && state.generation===generation)await refreshLearning();
+  if(state.token===token && state.generation===generation)await refreshGoogle();
 }
 
 $('pair-form').addEventListener('submit', async (event) => {
@@ -395,17 +397,21 @@ $('chat-form').addEventListener('submit', async (event) => {
     for(let attempt=0;data.pending&&attempt<30;attempt++){
       await new Promise(resolve=>setTimeout(resolve,1000));
       if(generation!==state.generation)return;
-      const receipt=await api(`/api/understanding/requests/${encodeURIComponent(request.requestId)}`);
-      data=receipt.response || {...receipt,pending:['PREPARED','DISPATCHING'].includes(receipt.state)};
+      const receiptPath=data.receiptURL?.startsWith('/api/google/requests/')?data.receiptURL:`/api/understanding/requests/${encodeURIComponent(request.requestId)}`;
+      const receipt=await api(receiptPath);
+      if(receipt.error)throw new ApiError(receipt.error.message,400);
+      data=receipt.response || {...receipt,receiptURL:receiptPath,pending:['PREPARED','DISPATCHING'].includes(receipt.state)};
     }
     if(data.pending||data.state==='UNKNOWN'||data.executionState==='UNKNOWN')throw new ApiError('The result remains pending or uncertain. Review its receipt before repeating it.',0);
     if (generation !== state.generation) return;
     state.conversationId = data.conversationId;
-    state.contextRevision = data.understanding?.contextRevision ?? null;
+    state.contextRevision = data.understanding?.contextRevision ?? data.contextRevision ?? null;
     state.lastUnderstanding = data.understanding;
     state.pending = null;
     $('chat-input').value = '';
     message(data.reply || 'The request finished without a reply. Refresh status for details.');
+    if(data.google?.preview)showGoogleOperation(data.google);
+    else if(data.google?.text)$('google-preview').textContent=data.google.text;
     status('chat-status', '');
     try { await refresh(); } catch { status('chat-status', 'Reply received. Status refresh failed; refresh manually.'); }
   } catch (error) {
@@ -474,6 +480,7 @@ refresh().catch(() => connection(false));
 setInterval(() => {
   api('/health', { authenticated: false }).then(() => connection(true)).catch(() => connection(false));
   if(state.paired && state.externalWaiting)refreshExternal(state.token,state.generation);
+  if(state.paired)refreshGoogle();
 }, 15000);
 
 async function refreshLearning(){
@@ -512,4 +519,72 @@ $('learning-reset')?.addEventListener('click',async()=>{const prepared=await lea
 
 $('learning-correct')?.addEventListener('click',()=>learningAction('feedback',{targetRequestId:state.lastUnderstanding?.requestId,contextRevision:state.contextRevision,decision:'correct-intent',correctedIntent:$('learning-intent').value}));
 $('learning-confirm')?.addEventListener('click',()=>learningAction('feedback',{targetRequestId:state.lastUnderstanding?.requestId,contextRevision:state.contextRevision,decision:'confirm-intent'}));
-霂
+
+
+async function refreshGoogle(){
+  if(!$('google-status')||!state.token)return;
+  const token=state.token,generation=state.generation;
+  try{
+    const value=await api('/api/google/status');if(token!==state.token||generation!==state.generation)return;state.google=value;
+    const account=value.account;const setup=value.setupRequired?' 路 desktop OAuth configuration required':'';
+    $('google-status').textContent=`${account?.email||'No linked account'} 路 ${value.connection||'disconnected'}${setup}${value.errorCode?' 路 '+value.errorCode:''}`;
+    $('google-connect').disabled=value.connection==='AUTHORIZING';$('google-disconnect').disabled=!account&&value.connection!=='AUTHORIZING';
+    const settings=value.settings||{};
+    if(!$('google-settings-form').contains(document.activeElement)){
+      $('google-enabled').checked=!!settings.googleEnabled;$('google-nudges').checked=!!settings.googleNudgesEnabled;
+      $('google-destination').value=settings.defaultMeetingDestination||'ask';
+      const calendars=$('google-calendars');calendars.replaceChildren();const select=$('google-default');select.replaceChildren(node('option','','Ask me'));select.firstChild.value='';
+      for(const calendar of value.calendars||[]){
+        const row=node('label','check-row');const input=document.createElement('input');input.type='checkbox';input.value=calendar.id;input.checked=(settings.selectedCalendarIds||[]).includes(calendar.id);row.append(input,document.createTextNode(calendar.summary||calendar.id));calendars.append(row);
+        if(calendar.accessRole==='owner'){const option=node('option','',calendar.summary||calendar.id);option.value=calendar.id;select.append(option);}
+      }select.value=settings.defaultCalendarId||'';
+    }
+    $('google-freshness').textContent=(value.sync||[]).map(x=>`${x.collection_id}: ${x.phase} 路 ${x.complete?'complete selected collection':'incomplete'}${x.last_success?' 路 '+new Date(x.last_success).toLocaleString():''}`).join(' | ')||'No Google collection synchronized yet.';
+    const operations=$('google-operations');operations.replaceChildren();
+    for(const operation of value.operations||[]){const row=node('div','preference-row');row.append(node('span','',`${operation.kind} 路 ${operation.state}`));const button=node('button','button quiet','Review receipt');button.type='button';button.onclick=async()=>{try{const result=await api(operation.receiptURL);if(token===state.token&&generation===state.generation)showGoogleOperation(result);}catch(error){status('google-status',error.message,true);}};row.append(button);operations.append(row);}
+  }catch(error){if(token===state.token&&generation===state.generation)status('google-status',error.message,true);}
+}
+function describeGooglePreview(preview){
+ const rows=[];for(const [key,label] of [['from','From'],['to','To'],['cc','Cc'],['subject','Subject'],['title','Title'],['calendarName','Calendar'],['start','Starts'],['end','Ends'],['timeZone','Timezone'],['attendees','Guests'],['body','Message'],['mode','Action'],['messageCount','Messages'],['sendUpdates','Guest notifications']])if(preview[key]!==undefined)rows.push(`${label}: ${Array.isArray(preview[key])?preview[key].join(', '):String(preview[key])}`);
+ if(preview.conflicts)rows.push('Conflicts: '+preview.conflicts.map(c=>`${c.id||c.calendarId||'Selected calendar'}: ${(c.busy||[]).map(b=>b.start+' to '+b.end).join(', ')}`).join('; '));
+ if(preview.sourceDraftRetained)rows.push('The source draft will remain in Gmail.');if(preview.blocks)rows.push(...preview.blocks.map((b,i)=>`Block ${i+1}: ${describeGooglePreview(b)}`));return rows.join('\n');
+}
+function showGoogleOperation(operation){
+ const panel=$('google-preview');panel.replaceChildren();panel.append(node('p','',`${operation.kind||'Google action'} 路 ${operation.state}`));
+ if(operation.preview)panel.append(node('pre','google-message-preview',describeGooglePreview(operation.preview)));
+ if(operation.result)panel.append(node('p','',operation.result.message||operation.result.code||'Receipt recorded.'));
+ if(operation.state==='UNKNOWN')panel.append(node('p','error-text','The request may have completed. It will not be sent again automatically.'));
+ if(operation.confirmationQueued){panel.append(node('p','','Queued for final checks. Review this receipt for completion.'));return;}
+ if(operation.preview?.conflictOverrideRequired){
+  const override=node('button','button secondary','Schedule despite this displayed conflict');override.type='button';
+  const generation=state.generation;
+  override.onclick=async()=>{override.disabled=true;try{const result=await api(`${operation.receiptURL}/allow-conflict`,{method:'POST',body:{requestId:crypto.randomUUID(),contextRevision:operation.contextRevision}});if(generation!==state.generation)return;showGoogleOperation(result);await refreshGoogle();}catch(error){if(generation===state.generation)status('google-status',error.message,true);}};
+  panel.append(override);return;
+ }
+ if(operation.state==='NEEDS_CONFIRMATION'&&operation.confirmationId){
+  panel.append(node('p','',`Confirm only this displayed content. Expires ${new Date(operation.expiresAt).toLocaleTimeString()}.`));
+  const confirm=node('button','button secondary',operation.kind==='google.gmail.sendPrepared'?'Send this exact email':'Confirm this Google action');confirm.type='button';
+  const cancel=node('button','button quiet','Cancel');cancel.type='button';
+  const generation=state.generation;
+  const decide=async decision=>{confirm.disabled=true;cancel.disabled=true;try{const body=decision==='confirm'?{requestId:crypto.randomUUID(),confirmationId:operation.confirmationId,payloadDigest:operation.payloadDigest,accountGeneration:operation.accountGeneration,contextRevision:operation.contextRevision}:{requestId:crypto.randomUUID()};const result=await api(`${operation.receiptURL}/${decision}`,{method:'POST',body});if(generation!==state.generation)return;showGoogleOperation(result);await refreshGoogle();}catch(error){if(generation===state.generation)status('google-status',error.message,true);}};
+  confirm.onclick=()=>decide('confirm');cancel.onclick=()=>decide('cancel');panel.append(confirm,cancel);
+ }
+}
+$('google-connect')?.addEventListener('click',async()=>{
+ const generation=state.generation;
+ try{await api('/api/google/connect',{method:'POST',body:{requestId:crypto.randomUUID(),capabilityProfile:{gmailRead:true,gmailCompose:$('google-compose').checked,gmailModify:$('google-modify').checked,calendarRead:true,calendarWrite:$('google-calendar-write').checked}}});if(generation===state.generation){status('google-status','Complete Google consent in the browser.');await refreshGoogle();}}
+ catch(error){if(generation===state.generation)status('google-status',error.message,true);}
+});
+$('google-disconnect')?.addEventListener('click',async()=>{
+ const generation=state.generation;
+ try{await api('/api/google/disconnect',{method:'POST',body:{requestId:crypto.randomUUID(),expectedAccountGeneration:state.google?.account?.generation??state.google?.generation??0}});if(generation===state.generation){$('google-preview').replaceChildren();await refreshGoogle();}}
+ catch(error){if(generation===state.generation)status('google-status',error.message,true);}
+});
+$('google-refresh')?.addEventListener('click',async()=>{
+ const generation=state.generation;try{await api('/api/google/sync',{method:'POST',body:{requestId:crypto.randomUUID(),service:'all'}});if(generation===state.generation)status('google-status','Refresh started. Freshness will update when it completes.');}catch(error){if(generation===state.generation)status('google-status',error.message,true);}
+});
+$('google-settings-form')?.addEventListener('submit',async event=>{
+ event.preventDefault();const generation=state.generation;if(!state.google)return;
+ try{await api('/api/google/settings',{method:'PATCH',body:{requestId:crypto.randomUUID(),expectedRevision:state.google.settingsRevision,selectedCalendarIds:[...$('google-calendars').querySelectorAll('input:checked')].map(x=>x.value),defaultCalendarId:$('google-default').value||null,defaultMeetingDestination:$('google-destination').value,googleEnabled:$('google-enabled').checked,googleNudgesEnabled:$('google-nudges').checked}});if(generation===state.generation){status('google-status','Google preferences saved.');await refreshGoogle();}}
+ catch(error){if(generation===state.generation)status('google-status',error.message,true);}
+});

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "status": "BLOCKED",
+  "installed": false,
+  "reason": "npm registry DNS resolution denied/unavailable in execution environment (ENOTFOUND); no Bun executable to regenerate existing lock.",
+  "required": [
+    {
+      "name": "nodemailer",
+      "import": "nodemailer/lib/mail-composer/index.js",
+      "exactVersion": null,
+      "integrity": null
+    },
+    {
+      "name": "mailparser",
+      "import": "mailparser",
+      "exactVersion": null,
+      "integrity": null
+    }
+  ],
+  "auditPassed": false,
+  "fallbackPolicy": "MIME_SETUP_REQUIRED; never replace audited MIME parser/composer with ad-hoc headers.",
+  "runtime": "Node 22 / Swift 6 / macOS 14+",
+  "oauthSDK": "Native URLSession, Security, CryptoKit, Network; no extra SDK"
+}

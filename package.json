@@ -21,7 +21,9 @@
     "test": "bun test",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "kst:ml:evaluate": "node packages/kst-core/native/understanding/evaluate-release-corpus.mjs"
+    "kst:ml:evaluate": "node packages/kst-core/native/understanding/evaluate-release-corpus.mjs",
+    "kst:google:test": "node --test packages/kst-core/test/google/*.test.mjs packages/kst-core/test/google-*.test.mjs packages/kst-core/test/release-06-integration.test.mjs packages/kst-core/test/native-bootstrap.test.mjs",
+    "kst:release06:check": "node scripts/kst-release-06.mjs"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"

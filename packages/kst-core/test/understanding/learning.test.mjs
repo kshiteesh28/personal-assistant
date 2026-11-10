@@ -149,4 +149,3 @@ test('T17 expiry invalidates active and rollback models containing forgotten evi
 test('T20 wake heartbeat during armed training cancels worker without waiting for audio',async t=>{
   const {decodeModel}=await import('../../src/understanding/model.mjs');const {service}=fixture(t,{modelApi:{decodeFeatures,decodeModel,runtime:'js-fallback'}});const heartbeat={clientInstanceId:'native-wake-worker',sequence:1,voiceState:'armed',ttsActive:false,idleSeconds:80,lowPowerMode:false,thermalState:'nominal'};service.runtimeState(heartbeat);service.train({requestId:'train-wake-worker'});const tick=service.tick();assert.ok(service.worker);const accepted=service.runtimeState({...heartbeat,sequence:2,voiceState:'discussion'});assert.equal(accepted.accepted,true);assert.equal(Atomics.load(service.cancelFlag,0),1);await tick;assert.equal(service.status().training.state,'TRAINING_CANCELLED');assert.equal(service.status().activeVersion,0);
 });
-ëŽ

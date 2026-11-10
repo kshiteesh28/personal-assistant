@@ -41,4 +41,3 @@ test('calibration requires independent split and insufficient evidence disables 
  const model=decodeModel(seed);assert.throws(()=>calibratePolicies(model,[{partition:'train',label:3,features:extractFeatures('list my tasks')}]),/Calibration split/);
  const result=calibratePolicies(model,[{partition:'calibration',label:3,features:extractFeatures('list my tasks')}]);assert.equal(result.minimumOverallMet,false);assert.equal(result.policies.filter(p=>p.automaticEnabled).length,0);
 });
-ë

@@ -1,0 +1,770 @@
+{
+  "schemaVersion": 1,
+  "limits": {
+    "body": 65536,
+    "frame": 524288,
+    "response": 2097152,
+    "resource": 65536,
+    "mailBody": 262144,
+    "cacheLive": 16777216,
+    "cacheFile": 33554432,
+    "cachePeak": 50331648,
+    "envelopes": 20971520,
+    "operations": 100,
+    "proposals": 4,
+    "confirmationMs": 60000,
+    "selectionMs": 300000,
+    "page": 250
+  },
+  "actionSchema": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "KST Google action envelope v1",
+    "oneOf": [
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "accountId",
+          "accountGeneration",
+          "args"
+        ],
+        "properties": {
+          "kind": {
+            "const": "google.gmail.search"
+          },
+          "accountId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "accountGeneration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "query"
+            ],
+            "properties": {
+              "query": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2048
+              },
+              "continuationId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "accountId",
+          "accountGeneration",
+          "args"
+        ],
+        "properties": {
+          "kind": {
+            "const": "google.gmail.read"
+          },
+          "accountId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "accountGeneration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "messageId"
+            ],
+            "properties": {
+              "messageId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "accountId",
+          "accountGeneration",
+          "args"
+        ],
+        "properties": {
+          "kind": {
+            "const": "google.gmail.draft"
+          },
+          "accountId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "accountGeneration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "to",
+              "cc",
+              "subject",
+              "body"
+            ],
+            "properties": {
+              "to": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 20,
+                "items": {
+                  "type": "string",
+                  "format": "email"
+                }
+              },
+              "cc": {
+                "type": "array",
+                "maxItems": 20,
+                "items": {
+                  "type": "string",
+                  "format": "email"
+                }
+              },
+              "subject": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 998
+              },
+              "body": {
+                "type": "string",
+                "maxLength": 32768
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "accountId",
+          "accountGeneration",
+          "args"
+        ],
+        "properties": {
+          "kind": {
+            "const": "google.gmail.replyDraft"
+          },
+          "accountId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "accountGeneration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "messageId",
+              "body"
+            ],
+            "properties": {
+              "messageId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "body": {
+                "type": "string",
+                "maxLength": 32768
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "accountId",
+          "accountGeneration",
+          "args"
+        ],
+        "properties": {
+          "kind": {
+            "const": "google.gmail.sendPrepared"
+          },
+          "accountId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "accountGeneration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "sourceDraftId"
+            ],
+            "properties": {
+              "sourceDraftId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "accountId",
+          "accountGeneration",
+          "args"
+        ],
+        "properties": {
+          "kind": {
+            "const": "google.gmail.setLabels"
+          },
+          "accountId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "accountGeneration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "target",
+              "mode"
+            ],
+            "properties": {
+              "target": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "type",
+                  "id"
+                ],
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "message",
+                      "thread"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
+                  }
+                }
+              },
+              "mode": {
+                "enum": [
+                  "archive",
+                  "read",
+                  "unread"
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "accountId",
+          "accountGeneration",
+          "args"
+        ],
+        "properties": {
+          "kind": {
+            "const": "google.gmail.trash"
+          },
+          "accountId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "accountGeneration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "target"
+            ],
+            "properties": {
+              "target": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "type",
+                  "id"
+                ],
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "message",
+                      "thread"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "accountId",
+          "accountGeneration",
+          "args"
+        ],
+        "properties": {
+          "kind": {
+            "const": "google.calendar.list"
+          },
+          "accountId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "accountGeneration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "calendarIds",
+              "start",
+              "end",
+              "timeZone"
+            ],
+            "properties": {
+              "calendarIds": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 5,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                }
+              },
+              "start": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "end": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "timeZone": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "accountId",
+          "accountGeneration",
+          "args"
+        ],
+        "properties": {
+          "kind": {
+            "const": "google.calendar.availability"
+          },
+          "accountId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "accountGeneration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "calendarIds",
+              "start",
+              "end",
+              "timeZone"
+            ],
+            "properties": {
+              "calendarIds": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 5,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                }
+              },
+              "start": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "end": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "timeZone": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "accountId",
+          "accountGeneration",
+          "args"
+        ],
+        "properties": {
+          "kind": {
+            "const": "google.calendar.create"
+          },
+          "accountId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "accountGeneration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "calendarId",
+              "title",
+              "start",
+              "end",
+              "timeZone",
+              "attendees",
+              "createMeet"
+            ],
+            "properties": {
+              "calendarId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
+              },
+              "start": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "end": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "timeZone": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "attendees": {
+                "type": "array",
+                "maxItems": 20,
+                "items": {
+                  "type": "string",
+                  "format": "email"
+                }
+              },
+              "createMeet": {
+                "type": "boolean"
+              },
+              "description": {
+                "type": "string",
+                "maxLength": 8192
+              },
+              "location": {
+                "type": "string",
+                "maxLength": 1024
+              },
+              "conflictOverrideToken": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "accountId",
+          "accountGeneration",
+          "args"
+        ],
+        "properties": {
+          "kind": {
+            "const": "google.calendar.reschedule"
+          },
+          "accountId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "accountGeneration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "calendarId",
+              "eventId",
+              "start",
+              "end",
+              "timeZone"
+            ],
+            "properties": {
+              "calendarId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "eventId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "start": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "end": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "timeZone": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "conflictOverrideToken": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "accountId",
+          "accountGeneration",
+          "args"
+        ],
+        "properties": {
+          "kind": {
+            "const": "google.calendar.cancel"
+          },
+          "accountId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "accountGeneration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "calendarId",
+              "eventId"
+            ],
+            "properties": {
+              "calendarId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "eventId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              }
+            }
+          }
+        }
+      },
+      {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "accountId",
+          "accountGeneration",
+          "args"
+        ],
+        "properties": {
+          "kind": {
+            "const": "google.calendar.publishPlan"
+          },
+          "accountId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "accountGeneration": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "calendarId",
+              "planId",
+              "planRevision",
+              "blockIds"
+            ],
+            "properties": {
+              "calendarId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "planId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              },
+              "planRevision": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "blockIds": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 20,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 1024
+                }
+              },
+              "conflictOverrideToken": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 1024
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "notes": [
+    "UTF-8 byte bounds, timezone-offset roundtrip and cross-field constraints additionally enforced by schemas.mjs.",
+    "No schema permission grants provider execution authority. All writes use a bound durable confirmation."
+  ],
+  "broker": {
+    "schemaVersion": 1,
+    "frame": "uint32BE length + UTF8 JSON",
+    "maximumBytes": 524288,
+    "request": {
+      "required": [
+        "schemaVersion",
+        "id",
+        "capability",
+        "method",
+        "params"
+      ]
+    },
+    "response": {
+      "oneOf": [
+        "{id,result}",
+        "{id,error:{code,message}}"
+      ]
+    }
+  }
+}

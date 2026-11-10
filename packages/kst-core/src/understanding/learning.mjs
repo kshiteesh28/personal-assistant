@@ -198,6 +198,16 @@ export class LearningService {
   rollback(body) {
     strictObject(body,['requestId','expectedModelVersion'],['requestId','expectedModelVersion']);return this.receipt('/api/understanding/rollback',body,()=>{this.requireStore();if(body.expectedModelVersion!==this.store.get('active',0))fail('MODEL_CHANGED','The active model changed.',409);const previous=this.store.get('previous',0);if(!previous)fail('NO_PREVIOUS_MODEL','No eligible previous model exists. Reset learning to use the seed.',409);const model=this.modelApi.decodeModel?.(this.store.readModel(previous));if(!model||model.privacyGeneration!==this.privacyGeneration())fail('MODEL_INELIGIBLE','The previous model is no longer eligible.',409);this.cancel('rollback');this.store.transaction(()=>{this.store.set('previous',this.store.get('active',0));this.store.set('active',previous);this.store.set('promotion-paused',true);});this.loadActive();return {rolledBack:true,activeVersion:previous,promotionPaused:true};});
   }
+  runtimeStateV2(body) {
+    strictObject(body,['schemaVersion','modeGeneration','clientInstanceId','sequence','voiceState','ttsActive','idleSeconds','lowPowerMode','thermalState'],['schemaVersion','modeGeneration','clientInstanceId','sequence','voiceState','ttsActive','idleSeconds','lowPowerMode','thermalState']);
+    if(body.schemaVersion!==2||!safeInteger(body.modeGeneration)||!['off','armed','discussion','speaking','dictating','dictation-paused','finalizing','inserting'].includes(body.voiceState))fail('INVALID_INPUT','Invalid version 2 runtime heartbeat.');
+    if(this.reporter?.clientInstanceId===body.clientInstanceId&&body.modeGeneration<(this.reporter.modeGeneration??0))return {accepted:false,schemaVersion:2};
+    const {schemaVersion,modeGeneration,...base}=body;
+    const dictation=['dictating','dictation-paused','finalizing','inserting'].includes(base.voiceState);
+    const result=this.runtimeState({...base,voiceState:dictation?'discussion':base.voiceState});
+    if(result.accepted){this.reporter.voiceState=base.voiceState;this.reporter.modeGeneration=modeGeneration;}
+    return {...result,schemaVersion:2};
+  }
   runtimeState(body) {
     strictObject(body,['clientInstanceId','sequence','voiceState','ttsActive','idleSeconds','lowPowerMode','thermalState'],['clientInstanceId','sequence','voiceState','ttsActive','idleSeconds','lowPowerMode','thermalState']);
     if(typeof body.clientInstanceId!=='string'||!(/^[a-zA-Z0-9_-]{8,128}$/).test(body.clientInstanceId)||!safeInteger(body.sequence)||!['off','armed','discussion','speaking'].includes(body.voiceState)||typeof body.ttsActive!=='boolean'||typeof body.lowPowerMode!=='boolean'||!Number.isFinite(body.idleSeconds)||body.idleSeconds<0||body.idleSeconds>86400||!['nominal','fair','serious','critical'].includes(body.thermalState))fail('INVALID_INPUT','Invalid activity heartbeat.');
@@ -213,7 +223,7 @@ export class LearningService {
   }
   eligible(manual=false) {
     const r=this.reporter;if(!r||this.clock()-r.received>=30000||this.reportConflict)return 'ACTIVITY_STALE';
-    if(['discussion','speaking'].includes(r.voiceState)||r.ttsActive||this.activeRequests||this.hasActiveWork())return 'WORK_ACTIVE';
+    if(['discussion','speaking','dictating','dictation-paused','finalizing','inserting'].includes(r.voiceState)||r.ttsActive||this.activeRequests||this.hasActiveWork())return 'WORK_ACTIVE';
     if(r.lowPowerMode||!['nominal','fair'].includes(r.thermalState))return 'POWER_OR_THERMAL';if(!manual&&r.idleSeconds<60)return 'NOT_IDLE';
     const last=this.store.get('training',{});if(last.attemptedAt&&this.clock()-last.attemptedAt<COOLDOWN)return 'COOLDOWN';return null;
   }

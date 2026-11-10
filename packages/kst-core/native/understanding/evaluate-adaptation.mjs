@@ -23,4 +23,3 @@ try{
  const report={schemaVersion:1,seedSHA256:createHash('sha256').update(seed).digest('hex'),measuredAt:new Date().toISOString(),passed:attempts.length>0&&attempts.every(a=>a.state&&a.state!=='training'),scope:'Synthetic chronological explicit-feedback stream through actual bounded learning service, idle scheduler, worker and promotion gates. Future release-test labels never supplied as feedback.',streamCases:stream.length,prequentialCorrect:correct,prequentialAccuracy:correct/stream.length,untouchedTest:{before,after,total:future.length,delta:after-before},attempts,events};
  writeFileSync(new URL('adaptation-report.json',resources),JSON.stringify(report,null,2)+'\n');console.log(JSON.stringify({passed:report.passed,streamCases:stream.length,untouchedTest:report.untouchedTest,attempts:attempts.length},null,2));
 }finally{await service.close();runtime.dispose();db.close();rmSync(dir,{recursive:true,force:true});}
-ëŽ

@@ -13,6 +13,13 @@ private final class AudioRequestFeed: @unchecked Sendable {
 
 @MainActor
 final class VoiceInput: ObservableObject {
+    enum Mode { case off, assistant, dictation }
+    @Published private(set) var mode: Mode = .off
+    var onDictationFinal: ((String) -> Void)?
+    var onDictationFailure: ((String) -> Void)?
+    var onDictationPhase: ((String) -> Void)?
+    private var terminalDictation = false
+
     @Published private(set) var status = "Microphone off"
     @Published private(set) var partialTranscript = ""
     @Published private(set) var active = false
@@ -49,6 +56,7 @@ final class VoiceInput: ObservableObject {
     /// Called only by the explicit Start listening action. Never from init or a test.
     func startConversation(armedPhrase: String? = nil) {
         close()
+        mode = .assistant
         if let armedPhrase {
             do { wakePhrase = try WakePhrase.validated(armedPhrase) }
             catch { fail(error.localizedDescription); return }
@@ -77,6 +85,30 @@ final class VoiceInput: ObservableObject {
         }
     }
 
+    /// Dictation permission dialogs are completed before a fresh target lease is acquired.
+    static var dictationPermissionsReady: Bool {
+        AVCaptureDevice.authorizationStatus(for: .audio) == .authorized && SFSpeechRecognizer.authorizationStatus() == .authorized
+    }
+    static func requestDictationPermissions() async {
+        _ = await AVCaptureDevice.requestAccess(for: .audio)
+        _ = await withCheckedContinuation { continuation in
+            SFSpeechRecognizer.requestAuthorization { continuation.resume(returning: $0) }
+        }
+    }
+    func startDictation(terminal: Bool) {
+        close()
+        guard Self.dictationPermissionsReady else { onDictationFailure?("Microphone and Speech permissions are required. Enable them, refocus your field, and start again."); return }
+        guard let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US")), recognizer.supportsOnDeviceRecognition else {
+            onDictationFailure?("On-device English recognition is unavailable. No online fallback was used."); return
+        }
+        mode = .dictation
+        terminalDictation = terminal
+        active = true
+        _ = lifecycle.begin()
+        self.recognizer = recognizer
+        resume()
+    }
+
     func resume() {
         guard active, [.permission, .waiting, .speaking].contains(lifecycle.state) else { return }
         guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized,
@@ -91,8 +123,9 @@ final class VoiceInput: ObservableObject {
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.requiresOnDeviceRecognition = true
         request.shouldReportPartialResults = true
-        request.taskHint = .confirmation
-        request.contextualStrings = Array(([wakePhrase, "reminder", "calendar", "timeline", "schedule meeting", "plan my day", "search web", "stop", "end conversation"].filter { !$0.isEmpty && $0.utf8.count <= 80 }).prefix(100))
+        request.taskHint = mode == .dictation ? .dictation : .confirmation
+        if mode == .dictation { request.addsPunctuation = !terminalDictation }
+        request.contextualStrings = mode == .dictation ? ["stop dictation", "pause dictation", "literal phrase", "new paragraph"] : Array(([wakePhrase, "reminder", "calendar", "timeline", "schedule meeting", "plan my day", "search web", "stop", "end conversation"].filter { !$0.isEmpty && $0.utf8.count <= 80 }).prefix(100))
         self.request = request
         partialTranscript = ""
         recognizedText = ""
@@ -119,6 +152,12 @@ final class VoiceInput: ObservableObject {
                 if final, let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     guard self.lifecycle.acceptFinal(generation: epoch, turn: turn) else { return }
                     self.cleanupCapture()
+                    if self.mode == .dictation {
+                        self.status = "Typing final dictation…"
+                        self.onDictationPhase?("inserting")
+                        self.onDictationFinal?(text)
+                        return
+                    }
                     if self.waitingForWake {
                         guard let command = WakeGate.command(in: text, phrase: self.wakePhrase) else {
                             self.recognizedText = ""
@@ -133,6 +172,10 @@ final class VoiceInput: ObservableObject {
                     }
                     self.status = "Waiting for the local core…"
                     self.onFinal?(text)
+                } else if final, self.mode == .dictation {
+                    guard self.lifecycle.acceptFinal(generation: epoch, turn: turn) else { return }
+                    self.cleanupCapture()
+                    self.resume()
                 } else if failed {
                     self.fail("On-device recognition ended without a verified final transcript. Nothing was sent; try again or type your request.")
                 }
@@ -141,7 +184,8 @@ final class VoiceInput: ObservableObject {
         do {
             engine.prepare()
             try engine.start()
-            status = waitingForWake ? "Armed for ‘\(wakePhrase)’ · continuous on-device speech gate" : "Listening locally · turn-taking mode"
+            if mode == .dictation { onDictationPhase?("dictating") }
+            status = mode == .dictation ? "Listening · dictation" : waitingForWake ? "Armed for ‘\(wakePhrase)’ · continuous on-device speech gate" : "Listening locally · turn-taking mode"
         } catch { fail("The microphone could not start. Listening is off; check the selected audio device."); return }
         timer = Task { [weak self] in
             while !Task.isCancelled {
@@ -157,11 +201,12 @@ final class VoiceInput: ObservableObject {
                     if now - finalizing > 5 { self.fail("Recognition did not finalize in time. No partial transcript was submitted."); return }
                 } else if self.recognizedText.isEmpty {
                     if now - self.startedAt > 45 {
-                        if self.waitingForWake { self.recycleArmedTurn() }
+                        if self.waitingForWake || self.mode == .dictation { self.recycleArmedTurn() }
                         else { self.endDiscussion(); self.onDiscussionEnded?() }
                         return
                     }
                 } else if now - self.startedAt > 45 {
+                    if self.mode == .dictation { self.finishTurn(); return }
                     if self.waitingForWake { self.recycleArmedTurn(); return }
                     self.fail("This turn reached its 45-second limit. Nothing was sent; split the request or type it.")
                     return
@@ -173,6 +218,7 @@ final class VoiceInput: ObservableObject {
     /// A finalized recognition result is still required; partial text is never dispatched.
     func finishTurn() {
         guard lifecycle.finalize(generation: lifecycle.generation, turn: lifecycle.turn) else { return }
+        if mode == .dictation { onDictationPhase?("finalizing") }
         status = waitingForWake ? "Armed · checking local phrase" : "Finalizing speech…"
         finalizeAt = ProcessInfo.processInfo.systemUptime
         engine.stop()
@@ -203,6 +249,7 @@ final class VoiceInput: ObservableObject {
         resume()
     }
     func close() {
+        mode = .off
         lifecycle.close()
         active = false
         waitingForWake = false
@@ -212,7 +259,12 @@ final class VoiceInput: ObservableObject {
         partialTranscript = ""
         status = "Microphone off"
     }
-    private func fail(_ message: String) { close(); status = message; onFailure?(message) }
+    private func fail(_ message: String) {
+        let wasDictation = mode == .dictation
+        let pendingPartial = partialTranscript
+        close(); status = message
+        if wasDictation { partialTranscript = pendingPartial; onDictationFailure?(message) } else { onFailure?(message) }
+    }
     private func cleanupCapture() {
         timer?.cancel(); timer = nil
         engine.stop()

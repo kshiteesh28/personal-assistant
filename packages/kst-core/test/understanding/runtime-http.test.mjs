@@ -20,7 +20,7 @@ function fixture(t,mode='shadow'){
 }
 test('integrated shadow runtime scores without retention, settings persist and requests keep legacy behavior',async t=>{
  const f=fixture(t);
- const health=await f.call('/health');assert.equal(health.data.version,'0.5.0');
+ const health=await f.call('/health');assert.equal(health.data.version,'0.6.0-preview.1');
  const status=await f.call('/api/understanding/status');assert.equal(status.status,200);assert.equal(status.data.mode,'shadow');assert.ok(['native','js-fallback'].includes(status.data.runtime));
  const result=await f.call('/api/conversation',{requestId:'http-shadow-task',text:'add task preserve legacy'});assert.equal(result.status,200);assert.match(result.data.reply,/preserve legacy/i);
  const feedback=await f.call('/api/understanding/feedback',{requestId:'http-feedback-01',targetRequestId:'http-shadow-task',contextRevision:0,decision:'confirm-intent'});assert.equal(feedback.status,409);

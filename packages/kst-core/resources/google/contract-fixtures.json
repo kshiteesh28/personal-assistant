@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "valid": [
+    {
+      "kind": "google.calendar.create",
+      "accountId": "fixture",
+      "accountGeneration": 1,
+      "args": {
+        "calendarId": "fixture-calendar",
+        "title": "Fixture",
+        "start": "2030-01-01T14:00:00Z",
+        "end": "2030-01-01T14:30:00Z",
+        "timeZone": "UTC",
+        "attendees": [],
+        "createMeet": false
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "kind": "google.gmail.draft",
+      "accountId": "fixture",
+      "accountGeneration": 1,
+      "args": {
+        "to": [
+          "one@example.test"
+        ],
+        "cc": [],
+        "subject": "Header\r\nBcc: second@example.test",
+        "body": "Fixture"
+      }
+    }
+  ]
+}

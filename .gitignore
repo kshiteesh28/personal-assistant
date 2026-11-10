@@ -22,3 +22,6 @@ apps/macos/build/
 
 # Locally compiled native classifier
 packages/kst-core/native/understanding/build/
+
+# Google desktop client configuration is user-local, not a source asset.
+google-client.json

@@ -39,4 +39,3 @@ export function calibratePolicies(model, records) {
   if (acceptedTotal < 100) for (const policy of policies) policy.automaticEnabled = false;
   return { policies, evidence, acceptedTotal, minimumOverallMet: acceptedTotal >= 100 };
 }
-ëŽ

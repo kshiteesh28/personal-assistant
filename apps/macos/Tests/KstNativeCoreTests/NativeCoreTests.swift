@@ -22,7 +22,9 @@ static func main() throws {
     try testSingletonExcludesSecondOwner()
     try testVoiceLifecycleRejectsDuplicateAndStaleResults()
     try testWakeGateAndUsageIntervals()
-    print("Native invariant checks passed: endpoint restriction, settings persistence/corruption, singleton ownership, voice lifecycle/deduplication, exact wake gate, activity intervals.")
+    try testDictationPolicies()
+    try testGoogleNativePolicy()
+    print("Native invariant checks passed: endpoint restriction, settings persistence/corruption, singleton ownership, voice lifecycle/deduplication, exact wake gate, activity intervals, native dictation controls/spacing/Unicode/terminal guards.")
 }
 static func testRejectsEmptyWakeAndRemoteEndpoint() throws {
     try rejects { _ = try WakePhrase.validated("  \n") }
@@ -36,6 +38,8 @@ static func testSettingsPersistAndCorruptionFailsExplicitly() throws {
     let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     defer { try? FileManager.default.removeItem(at: directory) }
     let store = SettingsStore(url: directory.appendingPathComponent("settings.json"))
+    try Data("{\"spokenReplies\":false}".utf8).write(to: { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true); return store.url }())
+    try check(try store.load().dictationEnabled == false, "Old settings migrate with dictation off")
     try store.save(NativeSettings(spokenReplies: false))
     try check(try store.load() == NativeSettings(spokenReplies: false), "Settings round trip")
     let permissions = try FileManager.default.attributesOfItem(atPath: store.url.path)[.posixPermissions] as? NSNumber
@@ -73,6 +77,40 @@ static func testVoiceLifecycleRejectsDuplicateAndStaleResults() throws {
     let newEpoch = voice.begin()
     try check(newEpoch != epoch, "New conversation generation")
     try check(!voice.accepts(generation: epoch, turn: next), "Old conversation rejected")
+}
+static func testDictationPolicies() throws {
+    try check(try DictationPolicy.parse("Stop dictation.", terminal: false, multiline: true) == .stop, "D20/D21 whole stop control")
+    try check(try DictationPolicy.parse("stop", terminal: false, multiline: true) == .text("stop"), "D20 bare stop is literal")
+    try check(try DictationPolicy.parse("arise show tasks", terminal: false, multiline: true) == .text("arise show tasks"), "D20 wake stays literal")
+    try check(try DictationPolicy.parse("literal phrase stop dictation", terminal: false, multiline: true) == .text("stop dictation"), "D21 escape precedes controls")
+    try check(try DictationPolicy.parse("new paragraph", terminal: false, multiline: true) == .text("\n\n"), "D32 paragraph")
+    try check(try DictationPolicy.parse("new line", terminal: true, multiline: false) == .text("new line"), "D18 terminal formatting literal")
+    try rejects { _ = try DictationPolicy.parse("new line", terminal: false, multiline: false) }
+    for text in ["ls\nrm", "ls\rrm", "ls\u{1b}", "ls\u{0}", "ls\u{2028}x", "ls\u{2029}x", "x\t", "ls\n", "ls\r", "ls\u{1b}"] {
+        try rejects { _ = try DictationPolicy.parse(text, terminal: true, multiline: false) }
+    }
+    try rejects { _ = try DictationPolicy.parse(String(repeating: "a", count: 4097), terminal: false, multiline: true) }
+    try check(DictationPolicy.payload("world", after: "hello") == " world", "D32 segmented spacing")
+    try check(DictationPolicy.payload(",", after: "hello") == ",", "D32 punctuation joins")
+    try check(DictationPolicy.payload("hello", after: "\n") == "hello", "D32 no leading space after newline")
+    let pane = try DictationPolicy.verifiedTerminalIdentity(windowID: "10", sessionID: "session-a", atPrompt: true)
+    let otherPane = try DictationPolicy.verifiedTerminalIdentity(windowID: "10", sessionID: "session-b", atPrompt: true)
+    try check(pane != otherPane, "D09 changing iTerm session invalidates pane identity")
+    try rejects { _ = try DictationPolicy.verifiedTerminalIdentity(windowID: "10", sessionID: "session-a", atPrompt: nil) }
+    try rejects { _ = try DictationPolicy.verifiedTerminalIdentity(windowID: "10", sessionID: "session-a", atPrompt: false) }
+    try rejects { _ = try DictationPolicy.verifiedTerminalIdentity(windowID: "10", sessionID: "session\na", atPrompt: true) }
+    try rejects { _ = try DictationPolicy.verifiedTerminalIdentity(windowID: "", sessionID: "session-a", atPrompt: true) }
+    let unicode = String(repeating: "😀e\u{301}", count: 30)
+    let chunks = DictationPolicy.unicodeChunks(unicode)
+    try check(chunks.joined() == unicode && chunks.allSatisfy { $0.utf16.count <= 32 }, "D10 Unicode scalars never split")
+    var gate = VoiceSession()
+    let generation = gate.begin(); let first = gate.listen(generation: generation)!
+    try check(gate.acceptFinal(generation: generation, turn: first), "D31 first final accepted")
+    try check(!gate.acceptFinal(generation: generation, turn: first), "D31 duplicate final denied")
+    let second = gate.listen(generation: generation)!
+    try check(gate.acceptFinal(generation: generation, turn: second), "D31 second turn with same words remains eligible")
+    gate.close()
+    try check(!gate.acceptFinal(generation: generation, turn: second), "D04 stop invalidates final")
 }
 static func testWakeGateAndUsageIntervals() throws {
     try check(WakeGate.command(in: "ARISE, show my tasks", phrase: "arise") == "show my tasks", "Inline command after configured wake preserved")

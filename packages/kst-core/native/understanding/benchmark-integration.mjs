@@ -39,4 +39,3 @@ try{
  writeFileSync(new URL('../../resources/understanding/integration-benchmark.json',import.meta.url),JSON.stringify(report,null,2)+'\n');
  console.log(JSON.stringify(report,null,2));
 }finally{await app.close();workspace.close();engine.close();rmSync(dir,{force:true,recursive:true});}
-ëŽ

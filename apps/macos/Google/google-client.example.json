@@ -1,0 +1,6 @@
+{
+  "installed": {
+    "client_id": "YOUR-DESKTOP-CLIENT.apps.googleusercontent.com",
+    "client_secret": "COPY_FROM_YOUR_GOOGLE_DESKTOP_CLIENT_FILE"
+  }
+}

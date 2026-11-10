@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "sourceSHA256": "9d4643bb4b9d375644eb9df2786b3340a31269a95f7b7764707656daaf791259",
+  "recordedAt": "2026-11-08T13:14:07.442Z",
+  "checks": [
+    {
+      "name": "core",
+      "status": "BLOCKED",
+      "tests": 292,
+      "passed": 291,
+      "failed": 1,
+      "failures": [
+        "not ok 10 - HTTP pairing, schemas, origin, static traversal, concurrency and shutdown"
+      ],
+      "limitation": "The execution sandbox denies local TCP listen; the existing HTTP listener integration test cannot run here.",
+      "log": "packages/kst-core/resources/google/release/evidence/core.log",
+      "logSHA256": "48317215a9928547d799f7ddd59137853ac56b070811fbc8c8e8924ea49ad830"
+    },
+    {
+      "name": "web",
+      "status": "PASSED",
+      "tests": 11,
+      "passed": 11,
+      "failed": 0,
+      "failures": [],
+      "log": "packages/kst-core/resources/google/release/evidence/web.log",
+      "logSHA256": "4226872cc41e9c64708726801932f4837cebcd84db014ca61427c8232e1ba5e6"
+    },
+    {
+      "name": "native",
+      "status": "PASSED",
+      "log": "packages/kst-core/resources/google/release/evidence/native.log",
+      "logSHA256": "c246a5f96f9063148bf91fb99bb9687fcaa424ea97b59f3cb1f9fe56e814fa5d"
+    },
+    {
+      "name": "build",
+      "status": "PASSED",
+      "log": "packages/kst-core/resources/google/release/evidence/build.log",
+      "logSHA256": "7ea2ea4fac91afc20da8e3bf8e5c6f53ee2203e98eddddc4edb9d9bd5aa90107"
+    }
+  ]
+}

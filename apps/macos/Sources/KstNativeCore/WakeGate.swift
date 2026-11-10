@@ -14,6 +14,27 @@ public enum WakeGate {
 }
 
 public enum VoiceControl {
+    public struct DictationStart: Equatable, Sendable {
+        public let initialText: String?
+        public init(initialText: String?) { self.initialText = initialText }
+    }
+
+    /// Explicit local handoff from assistant speech to foreground dictation.
+    /// Text spoken after the control prefix is kept as the first dictation turn.
+    /// This never routes the phrase or payload to a cloud model.
+    public static func dictationStart(in transcript: String) -> DictationStart? {
+        let commands = ["start typing for me", "start dictation", "begin dictation", "begin typing", "start typing"]
+        let source = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        for command in commands {
+            guard let range = source.range(of: command, options: [.anchored, .caseInsensitive]) else { continue }
+            guard range.upperBound == source.endIndex || source[range.upperBound].isWhitespace || source[range.upperBound].isPunctuation else { continue }
+            let rest = String(source[range.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))
+            if ["now", "please"].contains(rest.lowercased()) { return DictationStart(initialText: nil) }
+            return DictationStart(initialText: rest.isEmpty ? nil : rest)
+        }
+        return nil
+    }
+
     /// A Stop coalesced with a bounded read cancels the turn; data payloads stay data.
     public static func isStop(_ transcript: String) -> Bool {
         let text = transcript.lowercased().trimmingCharacters(in: .whitespacesAndNewlines.union(.punctuationCharacters))

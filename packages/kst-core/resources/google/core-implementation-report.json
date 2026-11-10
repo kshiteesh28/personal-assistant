@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+  "generatedAt": "2026-11-08T13:14:07.410Z",
+  "testCommand": "node --test packages/kst-core/test/google/*.test.mjs packages/kst-core/test/google-*.test.mjs packages/kst-core/test/release-06-integration.test.mjs packages/kst-core/test/native-bootstrap.test.mjs",
+  "tests": 78,
+  "passed": 78,
+  "failed": 0,
+  "testOutputSHA256": "afc937f6577d9eb7046e50b2bba80420606e5f26aee49308823b1b8dc56ba53a",
+  "implementation": "Google transport/cache/sync/actions/dialogue and native broker integration present in preview",
+  "releaseReady": false,
+  "liveProviderVerified": false,
+  "limitations": [
+    "Audited MIME dependencies cannot be installed in the current registry-DNS environment.",
+    "No Google Desktop OAuth configuration or consented disposable account was supplied; no live provider calls were made.",
+    "One full-core HTTP listener test is blocked by sandbox EPERM on 127.0.0.1.",
+    "Signed update and live speech, target compatibility, resource and latency checks remain outstanding.",
+    "Hands-free “start typing” native routing was compiled after the last complete test run; live speech acceptance and a fresh full suite are still pending."
+  ],
+  "integrationNotes": [
+    "Master HTTP gateway handles two-second pending receipts in bounded RAM and suppresses stale results.",
+    "Native dictation and Google actions use one shared audio coordinator and explicit preview/confirmation flows."
+  ],
+  "r12RemainingPolicy": "New conflict in a plan stops before the conflicting child; no parent-wide override or compensating deletes.",
+  "voiceDraftFlow": "Voice-confirmed draft/reply references are RAM-only (8 per discussion, five-minute expiry). Sending creates a separate immutable send preview requiring explicit confirmation; uncertain/pending/expired/account-mismatched references do not send.",
+  "testsWereRunBeforeHandsFreeVoiceCommandChange": true
+}

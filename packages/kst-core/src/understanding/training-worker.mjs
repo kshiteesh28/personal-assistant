@@ -33,4 +33,3 @@ try {
   if(!changed&&!improvements){parentPort.postMessage({ok:true,promote:false,reason:'NO_CHANGE',metrics});}
   else {parentPort.postMessage({ok:true,promote:true,bytes:encodeModel(candidate),metrics});}
 } catch(e) {parentPort.postMessage({ok:false,code:e.code??(e.message==='TRAINING_CANCELLED'?'TRAINING_CANCELLED':'TRAINING_FAILED'),message:e.message.slice(0,200)});}
-ëŽ

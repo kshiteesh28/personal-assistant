@@ -44,4 +44,3 @@ writeFileSync(new URL('seed-manifest.json',directory),JSON.stringify({
  blockers:['Independent action corpus minima remain unmet: 40/10/3 train/calibration/test per action versus required 120/40/80.','Other independent test count 64 versus required 500.','Automatic policies require calibration and independent precision/OOS gates.']
 },null,2));
 console.log(JSON.stringify({artifactBytes:result.bytes.length,replayBytes:replay.length,metrics:result.metrics}));
-ëŽ

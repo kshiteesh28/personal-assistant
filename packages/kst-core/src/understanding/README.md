@@ -42,4 +42,3 @@ Learning I/O errors pause learning rather than discard user records. A privacy g
 ## Review surfaces
 
 The paired dashboard exposes learning enable/promotion pause, status, corrections, confirmed expression previews, forgetting, idle training, rollback and reset. These routes retain bearer authentication and loopback host/origin validation. The native app carries context revisions, reports voice/thermal/idle state, and preserves pending request IDs during network failures. Only final speech transcripts reach the conversation API.
-ëŽ

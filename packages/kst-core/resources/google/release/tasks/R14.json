@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "taskId": "R14",
+  "implementationStatus": "IMPLEMENTED",
+  "releaseStatus": "BLOCKED",
+  "sourceSHA256": "38fd3feda4bc2811c09e39e7dacc8fd3b3716bc69e8299ef4267fdc547378f29",
+  "implementationDelivered": true,
+  "reason": "Dashboard tests pass; permissions and live native/browser flows remain unverified.",
+  "evidence": {
+    "automatedCheckLog": "packages/kst-core/resources/google/release/automated-checks.json",
+    "caseEvidence": "packages/kst-core/resources/google/release/case-evidence.json"
+  },
+  "status": "PASSED"
+}

@@ -10,4 +10,3 @@ test('release activation requires complete named evidence bound to source, seed 
  save(proof);assert.equal(validateReleaseReadiness(dir,Buffer.from('changed-seed')),false);
  writeFileSync(join(dir,'fixture-report.json'),'{}');assert.equal(validateReleaseReadiness(dir,seed),false);
 });
-ëŽ
