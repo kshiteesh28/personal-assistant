@@ -11,9 +11,9 @@ import { Workspace } from './workspace.mjs';
 import { createTerminalService } from './terminal.mjs';
 import { createExternalService } from './external.mjs';
 import { createUnderstanding } from './understanding/runtime.mjs';
-import {createGoogleRuntime} from './google/runtime.mjs';
-import {createBrokerClient} from './google/broker-client.mjs';
-import {readNativeBootstrap} from './native-bootstrap.mjs';
+import { createAppleRuntime } from './apple/runtime.mjs';
+import { createNativeBrokerClient } from './apple/broker-client.mjs';
+import { readNativeBootstrap } from './native-bootstrap.mjs';
 
 export const defaultDataDir = join(homedir(),'Library','Application Support','kst-dev','core');
 const webRoot=resolve(dirname(fileURLToPath(import.meta.url)),'../../kst-web');
@@ -30,8 +30,8 @@ export function startServer(options={}) {
   const lockPath=join(dataDir,'owner.lock'), nonce=randomBytes(16).toString('hex');
   let fd;
   try {fd=openSync(lockPath,'wx',0o600);writeFileSync(fd,JSON.stringify({pid:process.pid,nonce,startedAt:new Date().toISOString()}));closeSync(fd);} catch {throw new Error(`kst profile is locked. Another core may own it. After an abnormal exit, verify no owner remains before manually archiving ${lockPath}. Never remove a live owner's lock.`);}
-  let engine,workspace,terminal,external,adaptive,google,server,timer,nudgeTask,closed=false,cleanupPromise;
-  const cleanup=()=>cleanupPromise??=(async()=>{closed=true;clearInterval(timer);let executorsStopped=false;try{await google?.close?.();await nudgeTask;await adaptive?.close?.();await external?.close?.();await terminal?.close?.();executorsStopped=true;}finally{try{workspace?.close();}finally{engine?.close();}if(executorsStopped){try{if(JSON.parse(readFileSync(lockPath,'utf8')).nonce===nonce)unlinkSync(lockPath);}catch{}}}})();
+  let engine,workspace,terminal,external,adaptive,apple,broker,server,timer,nudgeTask,closed=false,cleanupPromise;
+  const cleanup=()=>cleanupPromise??=(async()=>{closed=true;clearInterval(timer);let executorsStopped=false;try{broker?.close?.();apple?.close?.();await nudgeTask;await adaptive?.close?.();await external?.close?.();await terminal?.close?.();executorsStopped=true;}finally{try{workspace?.close();}finally{engine?.close();}if(executorsStopped){try{if(JSON.parse(readFileSync(lockPath,'utf8')).nonce===nonce)unlinkSync(lockPath);}catch{}}}})();
   try {
     const tokenPath=join(dataDir,'token');
     let token=options.token??process.env.KST_TOKEN;
@@ -45,24 +45,25 @@ export function startServer(options={}) {
     if(!options.projects&&process.env.KST_PROJECTS_FILE){const file=process.env.KST_PROJECTS_FILE;if(!isAbsolute(file)||lstatSync(file).isSymbolicLink())throw Error('Project configuration must be an absolute regular file.');projects=JSON.parse(readFileSync(file,'utf8'));}
     terminal=createTerminalService({dataDir,projects,tokenFile:tokenPath,getCoreURL:()=>`http://127.0.0.1:${server?.address()?.port??port}`});
     external=createExternalService({dataDir:join(dataDir,'external')});
-    adaptive=createUnderstanding({dataDir,engine,workspace,terminal,external,secretary,mode:options.understandingMode});
-    google=createGoogleRuntime({dataDir,engine,workspace,broker:options.broker});
+    broker=options.broker??createNativeBrokerClient({});
+    apple=createAppleRuntime({dataDir,engine,workspace,broker});
+    adaptive=createUnderstanding({dataDir,engine,workspace,terminal,external,secretary,apple,mode:options.understandingMode});
     for(const name of ['kst.sqlite','kst.sqlite-wal','kst.sqlite-shm']){try{chmodSync(join(dataDir,name),0o600);}catch(e){if(e.code!=='ENOENT')throw e;}}
-    server=http.createServer(createRequestHandler({engine,workspace,terminal,external,...adaptive,google,token,port,staticDir,secretary,getActualPort:()=>server.address()?.port}));
-    server.requestTimeout=10000;server.headersTimeout=10000;
+    server=http.createServer(createRequestHandler({engine,workspace,terminal,external,...adaptive,apple,broker,token,port,staticDir,secretary,getActualPort:()=>server.address()?.port}));
+    server.requestTimeout=15000;server.headersTimeout=10000;
     const ready=new Promise((accept,reject)=>{
       server.once('error',e=>{cleanup().then(()=>reject(e),()=>reject(e));});
-      server.listen(port,'127.0.0.1',()=>{try{engine.recover();workspace.observeJobs(terminal.status().jobs);workspace.tick();timer=setInterval(()=>{try{workspace.observeJobs(terminal.status().jobs);workspace.tick();if(!nudgeTask)nudgeTask=google.nudgeSnapshot().then(snapshot=>{if(!closed)workspace.observeGoogleCalendar(snapshot);}).catch(()=>{if(!closed)workspace.observeGoogleCalendar({});}).finally(()=>{nudgeTask=null;});}catch{console.error('[kst] code=SCHEDULER_FAILED');}},15000);timer.unref();accept(server.address());}catch(e){server.close();cleanup().then(()=>reject(e),()=>reject(e));}});
+      server.listen(port,'127.0.0.1',()=>{try{engine.recover();workspace.observeJobs(terminal.status().jobs);workspace.tick();timer=setInterval(()=>{try{workspace.observeJobs(terminal.status().jobs);workspace.tick();if(!nudgeTask)nudgeTask=apple.nudgeSnapshot().then(snapshot=>{if(!closed)workspace.observeAppleCalendar(snapshot);}).catch(()=>{if(!closed)workspace.observeAppleCalendar({});}).finally(()=>{nudgeTask=null;});}catch{console.error('[kst] code=SCHEDULER_FAILED');}},15000);timer.unref();accept(server.address());}catch(e){server.close();cleanup().then(()=>reject(e),()=>reject(e));}});
     });
-    return {server,ready,engine,workspace,terminal,...adaptive,google,dataDir,tokenPath,close:()=>new Promise((resolveClose,rejectClose)=>server.close(()=>{cleanup().then(resolveClose,rejectClose);} ))};
+    return {server,ready,engine,workspace,terminal,...adaptive,apple,broker,dataDir,tokenPath,close:()=>new Promise((resolveClose,rejectClose)=>server.close(()=>{cleanup().then(resolveClose,rejectClose);} ))};
   }catch(e){cleanup().catch(()=>console.error('[kst] code=CLEANUP_FAILED owner-lock retained'));throw e;}
 }
 
 if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
   try {
     const bootstrap=await readNativeBootstrap();
-    const app=startServer({broker:bootstrap?createBrokerClient(bootstrap):undefined});await app.ready;
-    console.log(`kst core ready at http://127.0.0.1:${app.server.address().port} (scratch mode).`);
+    const app=startServer({broker:createNativeBrokerClient(bootstrap??{})});await app.ready;
+    console.log(`kst core 0.8.0-preview.1 ready at http://127.0.0.1:${app.server.address().port} (Apple-Native Executive Suite + Raphael Work Operator + Full-Duplex Voice).`);
     console.log(`Pair using the private token file: ${app.tokenPath}. Token values are never logged.`);
     const stop=async()=>{await app.close();process.exit(0);};process.once('SIGINT',stop);process.once('SIGTERM',stop);
   }catch(error){console.error(`kst startup failed: ${error.message}`);process.exitCode=1;}

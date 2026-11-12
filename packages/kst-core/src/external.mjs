@@ -43,6 +43,11 @@ export function createExternalService({dataDir,environment=process.env,fetchImpl
       scope.transport='claude-api';scope.destination='https://api.anthropic.com/v1/messages';scope.model=environment.KST_CLAUDE_MODEL||null;
       key=environment.KST_ANTHROPIC_API_KEY||'';configured=Boolean(key&&scope.model);
       scope.context=['Only this prompt is sent; no files, audio, terminal output, or conversation history.','Uses your configured Claude API key/model and API billing.'];
+    }else if(service==='gemini'){
+      scope.transport='gemini-api';scope.model=environment.KST_GEMINI_MODEL||'gemini-2.5-pro';
+      scope.destination=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(scope.model)}:generateContent`;
+      key=environment.KST_GEMINI_API_KEY||'';configured=Boolean(key&&scope.model);
+      scope.context=['Only this prompt is sent; no files, audio, terminal output, or conversation history.','Uses your configured Google Gemini API key/model and API billing.'];
     }else if(service==='web'){
       scope.transport='chrome-incognito';scope.destination='https://www.google.com/search';scope.deadlineSeconds=10;configured=process.platform==='darwin';
       scope.context=['Opens Google Search in a visible Chrome Incognito window.','Only the typed or spoken query is sent to Google. kst does not read or return page contents.'];
@@ -83,6 +88,21 @@ export function createExternalService({dataDir,environment=process.env,fetchImpl
   }
 
   async function modelRequest(scope,prompt,signal){
+    if(scope.transport==='gemini-api'){
+      const key=environment.KST_GEMINI_API_KEY;
+      const response=await fetchImpl(scope.destination,{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-goog-api-key':key},
+        body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{maxOutputTokens:1024}}),
+        signal,
+        redirect:'error'
+      });
+      const data=await readResponse(response);
+      const text=(data.candidates||[]).flatMap(c=>(c.content?.parts||[]).map(p=>p.text).filter(Boolean)).join('\n');
+      if(!text)throw new DispatchFailure('NO_TEXT_RESULT','Gemini returned no verified text result. Tool calls are not executed.',true);
+      const partial=text.length>16000;
+      return{text:text.slice(0,16000),partial,message:partial?'Provider returned a partial or truncated response.':'Approved Gemini response received.',providerResponseId:data.responseId||null,evidence:[{type:'provider-http',status:response.status}]};
+    }
     const openai=scope.transport==='openai-api';
     const key=openai?environment.KST_OPENAI_API_KEY:environment.KST_ANTHROPIC_API_KEY;
     const body=openai?{model:scope.model,input:prompt,store:false,max_output_tokens:1024}:{model:scope.model,messages:[{role:'user',content:prompt}],max_tokens:1024};
@@ -157,7 +177,7 @@ export function createExternalService({dataDir,environment=process.env,fetchImpl
     const entry={controller:new AbortController(),child:null,job,interrupt:null};active.set(job.id,entry);
     let timer;
     try{
-      const operation=['openai-api','claude-api'].includes(scope.transport)?modelRequest(scope,approval.prompt,entry.controller.signal):childRequest(scope,approval.prompt,entry);
+      const operation=['openai-api','claude-api','gemini-api'].includes(scope.transport)?modelRequest(scope,approval.prompt,entry.controller.signal):childRequest(scope,approval.prompt,entry);
       const interrupted=new Promise((_,reject)=>{entry.interrupt=reject;});
       const result=await Promise.race([operation,interrupted,new Promise((_,reject)=>{timer=setTimeout(()=>{entry.controller.abort();stopChild(entry);reject(new DispatchFailure('DEADLINE','Provider deadline expired; it may have processed the request. No retry was sent.',true));},scope.deadlineSeconds*1000);})]);
       if(job.status==='running'){Object.assign(job,result,{status:scope.transport==='browser-search'?'opened':result.partial?'partial':'succeeded'});save(job);}
@@ -179,5 +199,5 @@ export function createExternalService({dataDir,environment=process.env,fetchImpl
     if(!row)throw new Fault('DISPATCH_REJECTED','No approved request was admitted.',409);
     return JSON.parse(row.data);
   }
-  return{describe,dispatch,start,openWebSearch,cancel,status:()=>({services:['chatgpt','codex','claude','web','antigravity'].map(describe),jobs:db.prepare('SELECT data FROM external_jobs ORDER BY rowid DESC LIMIT 100').all().map(row=>JSON.parse(row.data))}),close:async()=>{closing=true;for(const id of active.keys())cancel(id);while(active.size)await new Promise(done=>setTimeout(done,10));await Promise.all([...terminations]);db.close();}};
+  return{describe,dispatch,start,openWebSearch,cancel,status:()=>({services:['chatgpt','codex','claude','gemini','web','antigravity'].map(describe),jobs:db.prepare('SELECT data FROM external_jobs ORDER BY rowid DESC LIMIT 100').all().map(row=>JSON.parse(row.data))}),close:async()=>{closing=true;for(const id of active.keys())cancel(id);while(active.size)await new Promise(done=>setTimeout(done,10));await Promise.all([...terminations]);db.close();}};
 }

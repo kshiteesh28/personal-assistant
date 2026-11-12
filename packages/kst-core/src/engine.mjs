@@ -14,7 +14,7 @@ const initial = ()=>({
             revision: 1,
             wakePhrase: 'arise',
             voice: 'system-default',
-            localReasoning: false,
+            localReasoning: true,
             externalApproval: 'every-request'
         },
         jobs: [],
@@ -28,27 +28,33 @@ const digest = (v)=>createHash('sha256').update(JSON.stringify(v)).digest('hex')
 export const capabilities = [
     {
         id: 'conversation',
-        label: 'Typed conversation',
+        label: 'Full-duplex conversation & Apple intelligence',
         status: 'ready',
-        detail: 'Deterministic local commands in a scratch profile.'
+        detail: 'Tier 1 on-device Apple Foundation Models + deterministic workspace actions.'
     },
     {
         id: 'voice',
-        label: 'Apple native voice',
+        label: 'Apple native full-duplex voice & barge-in',
         status: 'native-only',
-        detail: 'Provided by the Mac app; no browser speech or extra voice downloads.'
+        detail: 'Echo-cancelled AVAudioEngine + AVAudioPlayerNode with sample-accurate barge-in.'
     },
     {
         id: 'wake',
         label: 'Wake detection',
         status: 'native-only',
-        detail: 'Arm the Mac app for the configured phrase (default arise). Uses continuous on-device speech, not a separate keyword model; hardware validation pending.'
+        detail: 'Arm the Mac app for the configured phrase (default arise) using on-device Apple SpeechAnalyzer / SFSpeechRecognizer.'
     },
     {
         id: 'stt',
         label: 'Voice input',
         status: 'native-only',
-        detail: 'Explicit Start listening in the Mac app; on-device recognition required. Hardware validation pending.'
+        detail: 'On-device SpeechAnalyzer / SFSpeechRecognizer with full-duplex continuous listening.'
+    },
+    {
+        id: 'apple-suite',
+        label: 'Apple-Native Executive Suite',
+        status: 'ready',
+        detail: 'Native EventKit Calendar & Reminders, Contacts, Mail, Messages, Notes, Safari, Spotlight/Finder, Music, and Shortcuts.'
     },
     {
         id: 'terminal',
@@ -58,21 +64,21 @@ export const capabilities = [
     },
     {
         id: 'external',
-        label: 'ChatGPT / agents / web',
+        label: 'Claude / Gemini / ChatGPT / Codex / web',
         status: 'approval-preview',
-        detail: 'Every request requires approval. Provider dispatch is not implemented.'
+        detail: 'Every request requires approval. Provider dispatch is gated.'
     },
     {
         id: 'nudges',
         label: 'Proactive nudges',
         status: 'fixture-preview',
-        detail: 'Rule evaluation available using explicit sample inputs; no live screen monitoring.'
+        detail: 'Native activity and Apple Calendar EventKit feed the local nudge rules.'
     },
     {
         id: 'sync',
         label: 'Personal Secretary data',
         status: 'configurable-read-only',
-        detail: 'Optional approved read-only source via /api/secretary. Shared writes and iPhone sync remain unavailable.'
+        detail: 'Optional approved read-only source via /api/secretary.'
     }
 ];
 export class Engine {
@@ -167,7 +173,7 @@ export class Engine {
     }
     lookupRequest(requestId){const prior=this.read().requests[requestId];return prior?.result??null;}
     proposeExternal(requestId,{service,prompt,conversationId},details){
-        if(!['chatgpt','claude','codex','antigravity'].includes(service)||typeof prompt!=='string'||!prompt.trim()||prompt.length>4000)throw new Fault('INVALID_EXTERNAL','Supply an explicit supported service and prompt.');
+        if(!['chatgpt','claude','gemini','codex','antigravity'].includes(service)||typeof prompt!=='string'||!prompt.trim()||prompt.length>4000)throw new Fault('INVALID_EXTERNAL','Supply an explicit supported service and prompt.');
         return this.mutate(state=>this.once(state,requestId,{service,prompt,conversationId},()=>{
             if(state.approvals.filter(a=>a.status==='pending').length>=20)throw new Fault('APPROVAL_CAPACITY','Resolve an existing request first.',409);
             const approval={id:randomUUID(),service,prompt,context:details?.context??[],conversationId,scopeHash:details?.scopeHash??null,destination:details?.destination??null,transport:details?.transport??null,model:details?.model??null,configured:details?.configured??false,revision:1,status:'pending',createdAt:new Date(this.clock()).toISOString(),expiresAt:new Date(this.clock()+300000).toISOString()};
@@ -198,7 +204,7 @@ export class Engine {
                         : `No ${collection} in the current bounded Personal Secretary snapshot.`;
                     return response;
                 }
-                const external = command.match(/^(?:ask|use|search|browse)(?:\s+the)?\s+(chatgpt|codex|claude|antigravity|web)\b[:\s]*(.*)$/i);
+                const external = command.match(/^(?:ask|use|search|browse)(?:\s+the)?\s+(chatgpt|codex|claude|gemini|antigravity|web)\b[:\s]*(.*)$/i);
                 if (external) {
                     if (!external[2].trim()) {
                         response.reply = 'What would you like to send to that service?';
@@ -262,8 +268,8 @@ export class Engine {
                         a.status = 'denied';
                         a.revision++;
                     }
-                } else if (/^(?:status|help|hello|hi|what can you do)[.!?]?$/i.test(command)) response.reply = 'I’m kst, running locally in a scratch profile. Try “add task review API”, “show tasks”, “note review tomorrow”, “show secretary tasks”, or “ask codex explain the tests”. “Search web QUERY” opens Google Search in visible Chrome Incognito without approval. ChatGPT, Claude and Codex requests require your approval.';
-                else response.reply = 'I need a clearer local command. Try “add task …”, “show tasks”, “note …”, or ask to use ChatGPT, Codex, Claude, or the web. I won’t guess a command or contact a service automatically.';
+                } else if (/^(?:status|help|hello|hi|what can you do)[.!?]?$/i.test(command)) response.reply = 'I’m kst, running locally in a scratch profile. Try “add task review API”, “show tasks”, “note review tomorrow”, “show secretary tasks”, or “ask codex explain the tests”. “Search web QUERY” opens Google Search in visible Chrome Incognito without approval. ChatGPT, Claude, Gemini and Codex requests require your approval.';
+                else response.reply = 'I need a clearer local command. Try “add task …”, “show tasks”, “note …”, or ask to use ChatGPT, Codex, Claude, Gemini, or the web. I won’t guess a command or contact a service automatically.';
                 return response;
             }));
     }
@@ -355,4 +361,3 @@ export class Engine {
         });
     }
 }
-

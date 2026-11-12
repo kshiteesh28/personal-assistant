@@ -15,8 +15,6 @@ const date=v=>{if(typeof v!=='string'||!/^\d{4}-\d\d-\d\dT\d\d:\d\d(?::\d\d(?:\.
 const numbers={one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12,fifteen:15,twenty:20,thirty:30,forty:40,fortyfive:45,sixty:60};
 function normalizeSpeech(input){let s=input.trim().replace(/[.!?]+$/,'').trim();s=s.replace(/^yes,?\s+(?=(?:confirm|apply) plan$)/i,'');if(/^(?:remind me|schedule meeting|reschedule meeting|snooze reminder)/i.test(s)){s=s.replace(/\b(in|for)\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|forty five|sixty)\s+(minutes?|hours?|days?)\b/gi,(_,prefix,n,unit)=>`${prefix} ${numbers[n.toLowerCase().replace(/ /g,'')]} ${unit}`).replace(/\bat\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+(am|pm)\b/gi,(_,n,period)=>`at ${numbers[n.toLowerCase()]} ${period}`);}return s;}
 
-// Explicit imported sources can have another UID; the current user's effective access
-// is authoritative. Private kst profile/backup ownership remains strict below.
 export function validateWritableSource(sourcePath,allowedRoots=[root]) {
   const selected=safeFile(sourcePath,allowedRoots);
   try {
@@ -35,17 +33,17 @@ export function parseWhen(input,now) {
   const relative=s.match(/^in (\d{1,5}) (minutes?|hours?|days?)$/i);
   if(relative){const n=Number(relative[1]);if(n<1||n>10080)return null;return now+n*({minute:60000,hour:3600000,day:86400000}[relative[2].toLowerCase().replace(/s$/,'')]);}
   if(/^\d{4}-\d\d-\d\dT/.test(s)){try{return date(s);}catch{return null;}}
-  const at=s.match(/^(today|tomorrow|\d{4}-\d\d-\d\d) at (\d{1,2})(?::(\d\d))?\s*(am|pm)?$/i);
+  const at=s.match(/^(today|tomorrow|\d{4}-\d\d-\d\d) at (\d{1,2})(?:[:.](\d\d))?\s*(am|pm)?$/i);
   if(!at)return null;
   let hour=Number(at[2]),minute=Number(at[3]??0);if(minute>59||hour>23)return null;
   if(at[4]){if(hour<1||hour>12)return null;hour=hour%12+(at[4].toLowerCase()==='pm'?12:0);}
-  else if(hour<=12)return null; // 3 means 3am or 3pm: clarify.
+  else if(hour<=12)return null;
   const d=new Date(now);
   if(at[1].toLowerCase()==='tomorrow')d.setDate(d.getDate()+1);
-  else if(at[1].toLowerCase()!=='today') {const [y,m,day]=at[1].split('-').map(Number);d.setFullYear(y,m-1,day);if(d.getFullYear()!==y||d.getMonth()!==m-1||d.getDate()!==day)return null;}
+  else if(at[1].toLowerCase()!=='today') {const [y,m,day]=at[1].split('-').map(Number);d.setFullYear(y,m-1,day);if(d.getFullYear()!==y||d.getMonth()===m-1&&d.getDate()!==day||d.getMonth()!==m-1)return null;}
   d.setHours(hour,minute,0,0);
-  if(d.getHours()!==hour||d.getMinutes()!==minute)return null; // DST gap.
-  for(const delta of [-3600000,3600000]){const other=new Date(d.getTime()+delta);if(other.getFullYear()===d.getFullYear()&&other.getMonth()===d.getMonth()&&other.getDate()===d.getDate()&&other.getHours()===hour&&other.getMinutes()===minute)return null;} // DST fold.
+  if(d.getHours()!==hour||d.getMinutes()!==minute)return null;
+  for(const delta of [-3600000,3600000]){const other=new Date(d.getTime()+delta);if(other.getFullYear()===d.getFullYear()&&other.getMonth()===d.getMonth()&&other.getDate()===d.getDate()&&other.getHours()===hour&&other.getMinutes()===minute)return null;}
   return d.getTime();
 }
 
@@ -70,9 +68,9 @@ export class Workspace {
     }
     for(const suffix of ['','-wal','-shm']){try{const stat=lstatSync(path+suffix);if(stat.isSymbolicLink()||!stat.isFile()||(!sourceWrite&&stat.uid!==process.getuid()))throw Error('Workspace database must be a regular file; private files must be owned by this user.');if(!sourceWrite)chmodSync(path+suffix,0o600);else accessSync(path+suffix,constants.R_OK|constants.W_OK);}catch(e){if(e.code!=='ENOENT')throw e;}}
     this.path=path;this.db=new DatabaseSync(path);this.db.exec('PRAGMA busy_timeout=1000; PRAGMA foreign_keys=ON;');
-    if(!sourceWrite)this.db.exec(readFileSync(join(root,'migrations','001_foundation.sql'),'utf8'));
+    if(!sourceWrite){this.db.exec(readFileSync(join(root,'migrations','001_foundation.sql'),'utf8'));try{this.db.exec(readFileSync(join(root,'migrations','002_raphael_graph.sql'),'utf8'));}catch{}}
     for(const table of ['tasks','notes','reminders','events'])if(!this.db.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name=?").get(table))throw Error('Workspace source schema is unsupported.');
-    this.db.exec(`CREATE TABLE IF NOT EXISTS kst_domain_requests(id TEXT PRIMARY KEY,hash TEXT NOT NULL,result TEXT NOT NULL);
+    this.db.exec(`CREATE TABLE IF NOT EXISTS kst_domain_requests(id TEXT PRIMARY KEY,hash TEXT NOT NULL,result TEXT NOT NULL,turn_id TEXT,interrupted_at_char INTEGER,tier_used TEXT);
       CREATE TABLE IF NOT EXISTS kst_dialogue(id TEXT PRIMARY KEY,pending TEXT NOT NULL,expires_ts INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS kst_plans(id TEXT PRIMARY KEY,status TEXT NOT NULL,payload TEXT NOT NULL,created_ts INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS kst_notifications(id TEXT PRIMARY KEY,kind TEXT NOT NULL,entity_id TEXT,title TEXT NOT NULL,message TEXT NOT NULL,created_ts INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'pending',snooze_ts INTEGER);
@@ -80,11 +78,16 @@ export class Workspace {
       CREATE TABLE IF NOT EXISTS kst_delivery_keys(id TEXT PRIMARY KEY,created_ts INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS google_nudge_links(dedupe_key TEXT PRIMARY KEY,account_id TEXT NOT NULL,account_generation INTEGER NOT NULL,calendar_id TEXT NOT NULL,event_id TEXT NOT NULL,start_ts INTEGER NOT NULL,end_ts INTEGER NOT NULL,title TEXT NOT NULL,active INTEGER NOT NULL,source_version TEXT NOT NULL,observed_ts INTEGER NOT NULL);
       INSERT OR IGNORE INTO kst_delivery_keys SELECT id,created_ts FROM kst_notifications;`);
+    const existingCols=new Set(this.db.prepare('PRAGMA table_info(kst_domain_requests)').all().map(c=>c.name));
+    if(!existingCols.has('turn_id'))this.db.exec('ALTER TABLE kst_domain_requests ADD COLUMN turn_id TEXT;');
+    if(!existingCols.has('interrupted_at_char'))this.db.exec('ALTER TABLE kst_domain_requests ADD COLUMN interrupted_at_char INTEGER;');
+    if(!existingCols.has('tier_used'))this.db.exec('ALTER TABLE kst_domain_requests ADD COLUMN tier_used TEXT;');
+    this.db.exec('CREATE INDEX IF NOT EXISTS idx_kst_domain_requests_turn_id ON kst_domain_requests(turn_id);');
     if(!sourceWrite)chmodSync(path,0o600);
   }
   close(){this.db.close();}
   tx(fn){this.db.exec('BEGIN IMMEDIATE');try{const result=fn();this.db.exec('COMMIT');return result;}catch(e){this.db.exec('ROLLBACK');throw e;}}
-  once(id,payload,fn){if(typeof id!=='string'||!/^[\w-]{8,128}$/.test(id))fault('Provide a unique request ID.');const digest=hash(payload),prior=this.db.prepare('SELECT hash,result FROM kst_domain_requests WHERE id=?').get(id);if(prior){if(prior.hash!==digest)fault('Request ID already belongs to a different operation.','IDEMPOTENCY_CONFLICT',409);return JSON.parse(prior.result);}const result=fn();this.db.prepare('INSERT INTO kst_domain_requests VALUES(?,?,?)').run(id,digest,JSON.stringify(result));return result;}
+  once(id,payload,fn){if(typeof id!=='string'||!/^[\w-]{8,128}$/.test(id))fault('Provide a unique request ID.');const digest=hash(payload),prior=this.db.prepare('SELECT hash,result FROM kst_domain_requests WHERE id=?').get(id);if(prior){if(prior.hash!==digest)fault('Request ID already belongs to a different operation.','IDEMPOTENCY_CONFLICT',409);return JSON.parse(prior.result);}const result=fn();this.db.prepare('INSERT INTO kst_domain_requests(id,hash,result) VALUES(?,?,?)').run(id,digest,JSON.stringify(result));return result;}
   snapshot(){
     const tasks=this.db.prepare('SELECT id,title,status,due_ts,priority,project,updated_at FROM tasks ORDER BY updated_at DESC,id LIMIT 500').all().map(r=>({...r,dueAt:iso(r.due_ts),updatedAt:iso(r.updated_at)}));
     const notes=this.db.prepare('SELECT id,title,substr(body,1,4000) body,updated_at FROM notes ORDER BY updated_at DESC,id LIMIT 500').all().map(r=>({...r,updatedAt:iso(r.updated_at)}));
@@ -134,16 +137,19 @@ export class Workspace {
   reserved(){return this.db.prepare("SELECT payload FROM kst_plans WHERE status='applied'").all().flatMap(p=>JSON.parse(p.payload).blocks.map(b=>({start_ts:Date.parse(b.startAt),end_ts:Date.parse(b.endAt)}))).filter(b=>b.end_ts>this.now());}
   notification(id,requestId,decision,minutes){return this.tx(()=>this.once(requestId,{id,decision,minutes:minutes??null},()=>{const row=this.db.prepare('SELECT id FROM kst_notifications WHERE id=?').get(id);if(!row)fault('Notification not found.','NOT_FOUND',404);if(decision==='acknowledge')this.db.prepare("UPDATE kst_notifications SET status='acknowledged' WHERE id=?").run(id);else if(decision==='snooze'&&[15,30,60].includes(minutes))this.db.prepare("UPDATE kst_notifications SET status='snoozed',snooze_ts=? WHERE id=?").run(this.now()+minutes*60000,id);else fault('Choose acknowledge or snooze for 15, 30 or 60 minutes.');return {notification:{id,status:decision==='acknowledge'?'acknowledged':'snoozed'}};}));}
   emit(id,kind,entityId,title,message){if(this.db.prepare('INSERT OR IGNORE INTO kst_delivery_keys VALUES(?,?)').run(id,this.now()).changes)return this.db.prepare('INSERT OR IGNORE INTO kst_notifications(id,kind,entity_id,title,message,created_ts) VALUES(?,?,?,?,?,?)').run(id,kind,entityId,title,message,this.now());return {changes:0};}
+  observeAppleCalendar(snapshot={}) {
+    return this.observeGoogleCalendar(snapshot);
+  }
   observeGoogleCalendar(snapshot={}) {
     return this.tx(()=>{
       this.db.exec('UPDATE google_nudge_links SET active=0');
       const {accountId,generation,enabled,complete,events}=snapshot;
       if(enabled&&complete&&typeof accountId==='string'&&Number.isSafeInteger(generation)&&Array.isArray(events)) {
-        if(events.length>1000)fault('Cloud nudge snapshot exceeds its limit.');
+        if(events.length>1000)fault('Calendar nudge snapshot exceeds its limit.');
         const upsert=this.db.prepare('INSERT INTO google_nudge_links VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(dedupe_key) DO UPDATE SET account_generation=excluded.account_generation,end_ts=excluded.end_ts,title=excluded.title,active=1,source_version=excluded.source_version,observed_ts=excluded.observed_ts');
         for(const item of events){const e=item.resource??item;const calendarId=item.calendarId??e.calendarId;const at=Date.parse(e.start?.dateTime),end=Date.parse(e.end?.dateTime);if(!calendarId||!e.id||!Number.isFinite(at)||!Number.isFinite(end)||end<=at||e.status==='cancelled'||e.transparency==='transparent'||e.attendees?.some(a=>a.self&&a.responseStatus==='declined'))continue;
           const identity=hash([accountId,calendarId,e.id,e.originalStartTime?.dateTime??e.start.dateTime,10]);
-          upsert.run(identity,accountId,generation,calendarId,e.id,at,end,String(e.summary??'Google meeting').slice(0,256),1,String(e.etag??''),this.now());
+          upsert.run(identity,accountId,generation,calendarId,e.id,at,end,String(e.summary??'Calendar meeting').slice(0,256),1,String(e.etag??''),this.now());
         }
       }
       this.db.prepare("UPDATE kst_notifications SET status='acknowledged' WHERE kind='google-meeting' AND entity_id IN (SELECT dedupe_key FROM google_nudge_links WHERE active=0)").run();
@@ -157,7 +163,7 @@ export class Workspace {
     for(const e of this.db.prepare('SELECT * FROM events WHERE start_ts>? AND start_ts<=?').all(now,now+600000))emit(`meeting:${e.id}:${e.start_ts}`,'meeting',e.id,e.title,`Meeting starts at ${iso(e.start_ts)}.`);
     const recent=this.db.prepare('SELECT payload FROM kst_activity WHERE observed_ts>? ORDER BY observed_ts DESC,rowid DESC LIMIT 1').get(now-120000),activity=recent?JSON.parse(recent.payload):null;
     const meeting=this.db.prepare('SELECT id FROM events WHERE start_ts<=? AND end_ts>? LIMIT 1').get(now,now)||this.googleMeeting(now);
-    if(activity&&!activity.locked&&!activity.quietHours&&!activity.inMeeting&&!meeting){for(const e of this.db.prepare('SELECT * FROM google_nudge_links WHERE active=1 AND observed_ts>? AND start_ts>? AND start_ts<=?').all(now-180000,now,now+600000))emit(`google-meeting:${e.dedupe_key}`,'google-meeting',e.dedupe_key,e.title,`Google meeting starts at ${iso(e.start_ts)}.`);}
+    if(activity&&!activity.locked&&!activity.quietHours&&!activity.inMeeting&&!meeting){for(const e of this.db.prepare('SELECT * FROM google_nudge_links WHERE active=1 AND observed_ts>? AND start_ts>? AND start_ts<=?').all(now-180000,now,now+600000))emit(`google-meeting:${e.dedupe_key}`,'google-meeting',e.dedupe_key,e.title,`Calendar meeting starts at ${iso(e.start_ts)}.`);}
     const ordinary=this.db.prepare("SELECT created_ts FROM kst_notifications WHERE kind IN ('break','checkpoint') AND created_ts>? ORDER BY created_ts DESC").all(now-3600000);
     if(activity&&!activity.locked&&!activity.quietHours&&!activity.inMeeting&&!meeting&&ordinary.length<2&&(!ordinary[0]||now-ordinary[0].created_ts>=1200000)){
       for(const p of this.db.prepare("SELECT id,payload FROM kst_plans WHERE status='applied' ORDER BY created_ts DESC LIMIT 10").all()){
@@ -173,13 +179,22 @@ export class Workspace {
     return {accepted:true,inMeeting:meeting,notificationCount:this.notifications().length};}));}
   endConversation(conversationId){const pending=conversationId?this.db.prepare('SELECT pending FROM kst_dialogue WHERE id=?').all(conversationId):this.db.prepare('SELECT pending FROM kst_dialogue').all();for(const row of pending){const p=JSON.parse(row.pending);if(p.slot==='confirm')this.db.prepare("UPDATE kst_plans SET status='cancelled' WHERE id=? AND status='proposed'").run(p.operation.planId);}if(conversationId)this.db.prepare('DELETE FROM kst_dialogue WHERE id=?').run(conversationId);else this.db.exec('DELETE FROM kst_dialogue');}
   converse(requestId,text,conversationId=`conversation-${requestId}`){
-    const command=normalizeSpeech(text);const matched=/^(?:add task|complete task|note |remind me|snooze reminder|reschedule reminder|cancel reminder|schedule meeting|reschedule meeting|cancel meeting|show (?:my )?(?:tasks|notes|reminders|calendar|timeline)|list (?:my )?(?:tasks|notes|reminders)|plan my day|apply plan|confirm plan|cancel request)\b/i.test(command);
+    const command=normalizeSpeech(text);const matched=/^(?:add task|complete task|note |remind me|snooze reminder|reschedule reminder|(?:cancel|remove|delete) reminder|schedule meeting|reschedule meeting|(?:cancel|remove|delete) (?:meeting|(?:calendar )?event)|show (?:my )?(?:tasks|notes|reminders|calendar|timeline)|list (?:my )?(?:tasks|notes|reminders)|plan my day|apply plan|confirm plan|cancel request|what(?:'s| is) (?:the )?(?:current )?(?:time|date|day)|what time is it|current time|today(?:'s)? date|tell me the time)\b/i.test(command);
     const pending=this.db.prepare('SELECT * FROM kst_dialogue WHERE id=? AND expires_ts>?').get(conversationId,this.now());
     if(!matched&&!pending)return null;
     return this.tx(()=>this.once(requestId,{text,conversationId},()=>{
       const respond=(reply,extra={})=>({reply,conversationId,...extra});
       const ask=(operation,slot,reply)=>{this.db.prepare('INSERT OR REPLACE INTO kst_dialogue VALUES(?,?,?)').run(conversationId,JSON.stringify({operation,slot}),this.now()+90000);return respond(reply,{clarification:{slot,expiresAt:iso(this.now()+90000)}});};
       if(/^cancel request$/i.test(command)){this.endConversation(conversationId);return respond('Pending request cancelled.');}
+      if(/^(?:what(?:'s| is) (?:the )?(?:current )?(?:time|date|day)|what time is it(?: right now)?|current time|tell me the time|what day is it(?: today)?|today(?:'s)? date)[.!?]?$/i.test(command)){
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const nowMs = this.now();
+        const timeStr = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(new Date(nowMs));
+        const dateStr = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }).format(new Date(nowMs));
+        const tzParts = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'short' }).formatToParts(new Date(nowMs));
+        const tzShort = tzParts.find((p) => p.type === 'timeZoneName')?.value || tz;
+        return respond(`The current time is ${timeStr} (${tzShort}) on ${dateStr}.`);
+      }
       if(/^(?:show|list) (?:my )?(tasks|notes|reminders|calendar|timeline)$/i.test(command)){const key=command.split(' ').at(-1),items=this.snapshot()[key];return respond(items.length?items.slice(0,20).map(x=>`${x.title}${x.startAt?' — '+x.startAt:x.fireAt?' — '+x.fireAt:''}`).join('; '):`No ${key} yet.`,{items});}
       let action;
       if(pending&&!matched){const p=JSON.parse(pending.pending);action=p.operation;
@@ -194,8 +209,8 @@ export class Workspace {
         else if((m=command.match(/^note\s+(.+)$/i)))action={kind:'note.create',title:m[1].slice(0,80),body:m[1]};
         else if((m=command.match(/^remind me(?: to)?\s+(.+?)(?:\s+(in \d+ (?:minutes?|hours?|days?)|(?:today|tomorrow|\d{4}-\d\d-\d\d) at .+|\d{4}-\d\d-\d\dT.+))?$/i))){action={kind:'reminder.create',title:m[1]};if(m[2]){const at=parseWhen(m[2],this.now());if(at)action.fireAt=iso(at);}}
         else if((m=command.match(/^(schedule|reschedule) meeting\s+(.+?)(?:\s+(today at .+?|tomorrow at .+?|\d{4}-\d\d-\d\d at .+?|\d{4}-\d\d-\d\dT.+?))?(?:\s+for (\d+) minutes?)?$/i))){action={kind:m[1].toLowerCase()==='schedule'?'meeting.create':'meeting.reschedule',[m[1].toLowerCase()==='schedule'?'title':'target']:m[2]};if(m[3]){const at=parseWhen(m[3],this.now());if(at)action.startAt=iso(at);}if(m[4])action.durationMinutes=Number(m[4]);}
-        else if((m=command.match(/^cancel meeting\s+(.+)$/i)))action={kind:'meeting.cancel',target:m[1]};
-        else if((m=command.match(/^cancel reminder\s+(.+)$/i)))action={kind:'reminder.cancel',target:m[1]};
+        else if((m=command.match(/^(?:cancel|remove|delete) (?:meeting|(?:calendar )?event)\s+(.+)$/i)))action={kind:'meeting.cancel',target:m[1]};
+        else if((m=command.match(/^(?:cancel|remove|delete) reminder\s+(.+)$/i)))action={kind:'reminder.cancel',target:m[1]};
         else if((m=command.match(/^reschedule reminder\s+(.+?)(?:\s+(in \d+ (?:minutes?|hours?|days?)|(?:today|tomorrow|\d{4}-\d\d-\d\d) at .+|\d{4}-\d\d-\d\dT.+))?$/i))){action={kind:'reminder.reschedule',target:m[1]};if(m[2]){const at=parseWhen(m[2],this.now());if(at)action.fireAt=iso(at);}}
         else if((m=command.match(/^snooze reminder\s+(.+?)\s+for (\d+) minutes?$/i)))action={kind:'reminder.snooze',target:m[1],minutes:Number(m[2])};
         else if(/^plan my day$/i.test(command))action={kind:'plan.propose'};

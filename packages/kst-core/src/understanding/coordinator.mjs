@@ -9,7 +9,7 @@ const questions={title:'What is the title?',body:'What should the note say?',tar
 const labels=['other','task.create','task.complete','tasks.list','note.create','notes.list','reminder.create','reminder.reschedule','reminder.snooze','reminder.cancel','reminders.list','meeting.create','meeting.reschedule','meeting.cancel','calendar.list','timeline.list','plan.propose','plan.apply','web.search','terminal.runRecipe','terminal.inventory','terminal.cancelJob','external.request','external.results','source.read','help','status'];
 export function createCoordinator(options){return new UnderstandingCoordinator(options);}
 export class UnderstandingCoordinator{
- constructor({engine,workspace,terminal,external,secretary,learning,predict,features,mode='shadow',now=Date.now}={}){Object.assign(this,{engine,workspace,terminal,external,secretary,learning,predict,features,mode,now});this.ledger=new InterpretationLedger(engine.db);this.discussions=new Discussions(now);this.inflight=new Map();this.busy=new Set();this.feedback=new Map();this.counters={agreement:0,disagreement:0,abstention:0,requests:0};}
+ constructor({engine,workspace,terminal,external,secretary,apple,learning,predict,features,mode='shadow',now=Date.now}={}){Object.assign(this,{engine,workspace,terminal,external,secretary,apple,learning,predict,features,mode,now});this.ledger=new InterpretationLedger(engine.db);this.discussions=new Discussions(now);this.inflight=new Map();this.busy=new Set();this.feedback=new Map();this.counters={agreement:0,disagreement:0,abstention:0,requests:0};}
  status(){return {mode:this.mode,...this.counters,discussions:this.discussions.contexts.size};}
  close(){this.discussions.stop();this.feedback.clear();}
  stop(id){this.discussions.stop(id);for(const [key,candidate] of this.feedback)if(!id||candidate.conversationId===id)this.feedback.delete(key);this.learning?.cancel?.('stop');}
@@ -22,7 +22,7 @@ export class UnderstandingCoordinator{
  response(body,c,envelope,reply,decision,extra={}){const result={conversationId:c.id,reply,...extra,understanding:{schemaVersion:1,requestId:body.requestId,interpretationId:envelope.interpretationId,intent:envelope.action?.kind??'other',decision,modelVersion:envelope.modelVersion??0,runtime:envelope.runtime??'js-fallback',contextRevision:c.revision,...(c.question?{question:c.question}:{})}};this.ledger.update(body.requestId,'SUCCEEDED',envelope,result);return result;}
  ask(body,c,e,kind,field,reply){this.discussions.transition(c,kind==='confirmation'?'NEEDS_CONFIRMATION':kind==='entity'?'NEEDS_ENTITY':'NEEDS_FIELD',{pendingRequest:body.requestId,question:{id:randomUUID(),kind,...(field?{field}:{})},expiresAt:this.now()+120000});return this.response(body,c,e,reply,kind==='confirmation'?'confirm':'clarify');}
  async turn(body,c){const text=body.text,s=normalize(text),existing=this.ledger.get(body.requestId);let e={...existing.envelope,interpretationId:randomUUID(),conversationId:c.id,timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,privacyGeneration:this.privacy(),childId:childRequestId(body.requestId),preconditions:[],discussionGeneration:c.generation};
-  if(/^(?:stop|we'?re done|end conversation|stop listening|cancel request)$/.test(s)){this.stop(c.id);return this.response(body,c,e,'Pending discussion ended.','control');}
+  if(/^(?:stop|we'?re done|end conversation|stop listening|cancel request|total shut\s*-?\s*down)$/.test(s)){this.stop(c.id);return this.response(body,c,e,'Pending discussion ended.','control');}
   if(this.learning&&/^(?:pause learning|resume learning|resume model updates|train now|what have you learned)$/.test(s)){
    let reply,result;
    if(s==='pause learning'||s==='resume learning'||s==='resume model updates'){const settings=this.learning.settingsValue();result=this.learning.settings({requestId:childRequestId(body.requestId),expectedRevision:settings.revision,...(s==='resume model updates'?{promotionPaused:false}:{learningEnabled:s==='resume learning'})});reply=s==='pause learning'?'Learning paused.':s==='resume learning'?'Learning resumed.':'Model updates resumed.';}
@@ -84,8 +84,44 @@ export class UnderstandingCoordinator{
  templateFromMasked(masked,intent){if(!masked)return undefined;const found=masked.match(/<(title|query|prompt)>/g);if(found?.length!==1)return undefined;const slot=found[0].slice(1,-1),[prefix,suffix]=masked.split(found[0]);const tokens=s=>s.trim().match(/[\p{L}\p{N}]+(?:'[\p{L}\p{N}]+)*/gu)??[];if(Buffer.byteLength(prefix+suffix)>160)return undefined;return {v:1,intent:labels.indexOf(intent),slot,prefix:tokens(prefix),suffix:tokens(suffix)};}
  previewCandidate(targetRequestId,contextRevision){const c=this.feedbackCandidate(targetRequestId,contextRevision);if(!c.template)throw new Fault('TEMPLATE_UNAVAILABLE','This expression cannot safely become a template.',409);c.previewShown=true;return {template:c.template,preview:`${c.template.prefix.join(' ')} <${c.template.slot}> ${c.template.suffix.join(' ')}`.trim()};}
  confirmTemplatePreview(targetRequestId,contextRevision){const c=this.feedbackCandidate(targetRequestId,contextRevision);if(!c.template||!c.previewShown)throw new Fault('TEMPLATE_PREVIEW_REQUIRED','Review this expression template before confirming it.',409);c.templatePreviewConfirmed=true;return c;}
- async dispatch(e){const a=e.action,workspaceKinds=new Set(['task.create','task.complete','note.create','reminder.create','reminder.reschedule','reminder.snooze','reminder.cancel','meeting.create','meeting.reschedule','meeting.cancel','plan.propose','plan.apply']);if(workspaceKinds.has(a.kind)){if(!this.workspace)throw new Fault('WORKSPACE_UNAVAILABLE','Secretary workspace is unavailable.',503);const result=this.workspace.action(e.childId,a,e.preconditions??[]);return {reply:result.message,result};}
-  if(['tasks.list','notes.list','reminders.list','calendar.list'].includes(a.kind)){const collection=a.kind.split('.')[0],q=this.workspace.queryCollection(collection,a.scope??{});return {reply:q.items.length?q.items.slice(0,20).map(r=>r.title).join('; '):`No ${collection} yet.`,items:q.items,truncated:q.truncated};}
+ async dispatch(e){
+  const a=e.action;
+  const workspaceKinds=new Set(['task.create','task.complete','note.create','reminder.create','reminder.reschedule','reminder.snooze','reminder.cancel','meeting.create','meeting.reschedule','meeting.cancel','plan.propose','plan.apply']);
+  if(workspaceKinds.has(a.kind)){
+   if(!this.workspace)throw new Fault('WORKSPACE_UNAVAILABLE','Secretary workspace is unavailable.',503);
+   const result=this.workspace.action(e.childId,a,e.preconditions??[]);
+   // Also sync Calendar, Reminders, and Notes mutations to Apple-Native apps when paired
+   if(this.apple?.executeToolAction){
+    const appleKindMap={
+     'meeting.create':'apple.schedule.meetingCreate',
+     'meeting.reschedule':'apple.schedule.meetingReschedule',
+     'meeting.cancel':'apple.schedule.meetingCancel',
+     'reminder.create':'apple.schedule.reminderCreate',
+     'reminder.reschedule':'apple.schedule.reminderModify',
+     'reminder.cancel':'apple.schedule.reminderCancel',
+     'note.create':'apple.knowledge.noteCreate'
+    };
+    const appleKind=appleKindMap[a.kind];
+    if(appleKind){
+     try{await this.apple.executeToolAction({requestId:`${e.childId}-apl`,kind:appleKind,args:a});}catch{}
+    }
+   }
+   return {reply:result.message,result};
+  }
+  if(['tasks.list','notes.list','reminders.list','calendar.list'].includes(a.kind)){
+   const collection=a.kind.split('.')[0];
+   if(this.apple?.executeToolAction&&['calendar','reminders','notes'].includes(collection)){
+    try{
+     const appleKind=collection==='calendar'?'apple.schedule.calendarList':collection==='reminders'?'apple.schedule.remindersList':'apple.knowledge.noteList';
+     const appleRes=await this.apple.executeToolAction({requestId:`${e.childId}-apl`,kind:appleKind,args:a.scope??{}});
+     if(appleRes?.message&&(appleRes.events?.length||appleRes.reminders?.length||appleRes.notes?.length)){
+      return {reply:appleRes.message,items:appleRes.events??appleRes.reminders??appleRes.notes??[],truncated:false};
+     }
+    }catch{}
+   }
+   const q=this.workspace.queryCollection(collection,a.scope??{});
+   return {reply:q.items.length?q.items.slice(0,20).map(r=>r.title).join('; '):`No ${collection} yet.`,items:q.items,truncated:q.truncated};
+  }
   if(a.kind==='timeline.list'){const items=this.workspace.snapshot().timeline.filter(item=>!a.scope||Date.parse(item.startAt)<Date.parse(a.scope.endAt)&&Date.parse(item.endAt??item.startAt)>=Date.parse(a.scope.startAt));return {reply:items.length?items.slice(0,20).map(r=>`${r.title} — ${r.startAt}`).join('; '):'No timeline entries yet.',items};}
   if(a.kind==='web.search'){if(!this.external)throw new Fault('BROWSER_UNAVAILABLE','Chrome Incognito is unavailable.',503);if(a.query.length>1200)throw new Fault('INVALID_QUERY','Search query must be at most 1,200 characters.');const browser=await this.external.openWebSearch(a.query);return {reply:browser.message,browser:{status:browser.status}};}
   if(a.kind==='terminal.runRecipe'){if(!this.terminal)throw new Fault('TERMINAL_UNAVAILABLE','Terminal recipes are unavailable.',503);const job=await this.terminal.runRecipe({projectId:a.projectId,recipeId:a.recipeId,requestId:e.childId});return {reply:`Project recipe ${job.status}: ${job.message??job.id}`,job};}
@@ -94,7 +130,7 @@ export class UnderstandingCoordinator{
   if(a.kind==='external.request')return this.engine.proposeExternal(e.childId,{service:a.service,prompt:a.prompt,conversationId:e.conversationId},this.external?.describe(a.service));
   if(a.kind==='external.results'){const jobs=this.external?.status().jobs.filter(j=>j.text).slice(0,3)??[];return {reply:jobs.length?jobs.map(j=>`${j.service}: ${j.text}`).join('\n\n'):'No verified external results yet.',jobs};}
   if(a.kind==='source.read'){const source=this.secretary?.snapshot();if(source?.status!=='fresh')return {reply:'Current Personal Secretary data is unavailable.'};const items=source.data[a.collection]??[];return {reply:`Personal Secretary ${a.collection} (read only, observed ${source.observedAt}): ${items.slice(0,10).map(r=>r.title).join('; ')||'No records in this bounded snapshot.'}`,items};}
-  if(a.kind==='help')return {reply:'I can manage tasks, notes, reminders, meetings, calendar, timeline and focus plans; open Chrome Incognito searches; run configured project recipes; show iTerm sessions; and ask ChatGPT, Claude or Codex with your approval.'};
+  if(a.kind==='help')return {reply:'I can manage tasks, notes, reminders, meetings, calendar, timeline and focus plans; draft emails in Apple Mail; stage iMessages; open Chrome Incognito searches; run configured project recipes; show iTerm sessions; and ask ChatGPT, Claude or Codex with your approval.'};
   if(a.kind==='status')return {reply:'Local core connected. ML understanding is active. Apple native voice and secretary actions are available. External AI requires approval.'};throw new Fault('UNSUPPORTED_INTENT','That interpretation has no supported executor.');
  }
  async reconcile(record){const e=record.envelope;if(record.state==='DISPATCHING'&&e.action){let result;if(this.workspace?.receipt(e.childId))result={result:this.workspace.receipt(e.childId),reply:this.workspace.receipt(e.childId).message};else if(e.action.kind==='external.request')result=this.engine.lookupRequest(e.childId);else if(e.action.kind==='terminal.runRecipe'){const job=this.terminal?.lookupRequest?.(e.childId);if(job)result={job,reply:`Project recipe ${job.status}: ${job.message??job.id}`};}if(result){const response={...result,conversationId:e.conversationId,executionState:'SUCCEEDED'};this.ledger.update(record.request_id,'SUCCEEDED',e,response);return response;}}const response={conversationId:e.conversationId,reply:'A previous request was interrupted. Its effect is uncertain; review before making a new request.',executionState:'UNKNOWN',requestId:record.request_id};this.ledger.update(record.request_id,'UNKNOWN',e,response);return response;}

@@ -93,8 +93,6 @@ public struct SettingsStore {
     public func save(_ settings: NativeSettings) throws {
         let settings = try settings.validated()
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-        // macOS uses the private directory/file permissions below. Explicit data
-        // protection attributes can fail on otherwise writable desktop volumes.
         try JSONEncoder().encode(settings).write(to: url, options: [.atomic])
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
     }

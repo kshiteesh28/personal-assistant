@@ -9,7 +9,7 @@ import KstNativeCore
 struct Message: Identifiable {
     let id = UUID()
     let role: String
-    let text: String
+    var text: String
 }
 
 private struct CoreReply: Decodable {
@@ -33,6 +33,7 @@ private struct ExternalResult: Decodable {
 }
 private struct PendingRequest {
     let id: String
+    let turnId: String
     let text: String
     let conversationId: String?
     let contextRevision: Int?
@@ -41,20 +42,26 @@ private struct PendingRequest {
 
 @MainActor
 final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
-    @Published var messages = [Message(role: "kst", text: "Ready for typed or local voice requests. Arm the configured wake phrase to activate a discussion by voice. Armed mode uses continuous on-device Apple speech; it is not a dedicated low-power keyword model.")]
+    @Published var messages = [Message(role: "kst", text: "Ready for full-duplex 2-way voice or typed requests (KST v0.8 · Raphael). Say “arise” to wake, or say “total shut down” at any time to pause listening until you call the wake phrase again.")]
     let voice = VoiceInput()
     let supervisor = CoreSupervisor()
     lazy var dictation = AudioModeCoordinator(voice: voice, directory: nativeDirectory)
-    private let googleBroker: GoogleAccountBroker
-    @Published var googleStatus = "Google disconnected · configure your account to sync"
-    @Published var googleConnected = false
-    @Published var googleAuthorizing = false
-    @Published var googleCompose = false
-    @Published var googleModify = false
-    @Published var googleCalendarWrite = false
-    @Published var googlePreviewText = ""
+    private let nativeCoordinator = NativeSystemCoordinator()
+    @Published var appleStatus = "Apple-Native Suite ready · Calendar, Reminders, Contacts, Mail, Messages, Notes, Safari, Spotlight & Music"
+    @Published var intelligenceStatus = "Tier 1A: Apple Foundation Models (On-Device 3B) · Full-Duplex Barge-In Active"
+    @Published var applePreviewText = ""
+    @Published var pendingConfirmationId: String?
     @Published var dictationShortcutCode = UserDefaults.standard.object(forKey: "dictation.hotkey.code") as? Int ?? 2
-    private var googleGeneration = 0
+    @Published var raphaelWorkMode = "DEEP_ARCHITECTURE"
+    @Published var raphaelInterruptibility = "High (82%)"
+    @Published var raphaelTopSkill = "Swift Strict Concurrency & Sendable Actors"
+    @Published var raphaelFlowMusic = "Ambient Architecture"
+    @Published var preferredMusicStyle = "Auto (Thompson Sampling)"
+    @Published var customMusicPlaylist = ""
+    @Published var musicAutoDuck = true
+    private var appleSettingsRevision = 1
+    private var appleSettingsLoaded = false
+    private var brokerBootstrap: NativeBrokerBootstrap?
     private var brokerStarted = false
     private var brokerTask: Task<Void, Never>?
     private var runtimeV2Available = false
@@ -65,7 +72,7 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     @Published var connection = "Checking local core…"
     @Published var issue: String?
     @Published var settings = NativeSettings()
-    @Published var wakePhrase = ""
+    @Published var wakePhrase = "arise"
     @Published var busy = false
     @Published var savedNotice = ""
     private var activitySubscription: AnyCancellable?
@@ -77,13 +84,14 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
     private var settingsRevision: Int?
     private let launchedAt = Date()
     private var shownExternalResults = Set<String>()
-    private var shownGoogleResults = Set<String>()
     private var requestTask: Task<Void, Never>?
     private var healthTask: Task<Void, Never>?
     private let speech = AVSpeechSynthesizer()
     private var speakingID: ObjectIdentifier?
+    private var utteranceCharOffsets: [ObjectIdentifier: Int] = [:]
     private var speechTimeout: Task<Void, Never>?
     private var generation = 0
+    private var stitchedContinuationPrefix = ""
     private let store: SettingsStore
     private let session: URLSession
     private let endpoint: URL?
@@ -97,14 +105,14 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         endpoint = try? LocalEndpoint.validated(env["KST_CORE_URL"] ?? "http://127.0.0.1:4310")
         let coreDirectory = env["KST_DATA_DIR"].map { URL(fileURLWithPath: $0) } ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/kst-dev/core")
         tokenURL = coreDirectory.appendingPathComponent("token")
-        googleBroker = GoogleAccountBroker(profileURL: coreDirectory)
         let configuration = URLSessionConfiguration.ephemeral
-        configuration.timeoutIntervalForRequest = 4
-        configuration.timeoutIntervalForResource = 8
+        configuration.timeoutIntervalForRequest = 12
+        configuration.timeoutIntervalForResource = 20
         configuration.urlCache = nil
         session = URLSession(configuration: configuration, delegate: LoopbackRedirectGuard(), delegateQueue: nil)
         super.init()
         speech.delegate = self
+        voice.applyWakePhrase(wakePhrase)
         dictation.onWillStart = { [weak self] in self?.stop(stopDictation: false); self?.issue = nil }
         dictation.onStateChanged = { [weak self] in Task { @MainActor in await self?.reportRuntimeState() } }
         dictation.acknowledgeTarget = { [weak self] text, completion in
@@ -118,8 +126,20 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
             }
         }
         activitySubscription = voice.$status.removeDuplicates().sink { [weak self] _ in Task { @MainActor in await self?.reportRuntimeState() } }
+        voice.onBargeIn = { [weak self] turnId, spokenCharIndex, reason in
+            guard let self else { return }
+            self.handleUserBargeIn(turnId: turnId, spokenCharIndex: spokenCharIndex, reason: reason)
+        }
+        voice.onTotalShutdown = { [weak self] in
+            guard let self else { return }
+            self.sleepToWakeStandby()
+        }
         voice.onFinal = { [weak self] text in
             guard let self, self.voice.active else { return }
+            if VoiceControl.isTotalShutdown(text) {
+                self.sleepToWakeStandby()
+                return
+            }
             if let command = VoiceControl.dictationStart(in: text) { self.dictation.start(initialText: command.initialText); return }
             if VoiceControl.isStop(text) {
                 self.stop()
@@ -130,7 +150,9 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
                 self.endDiscussion()
                 return
             }
-            self.draft = text
+            let combined = self.stitchedContinuationPrefix.isEmpty ? text : (self.stitchedContinuationPrefix + " " + text)
+            self.stitchedContinuationPrefix = ""
+            self.draft = combined
             self.submit(fromVoice: true)
         }
         voice.onFailure = { [weak self] message in self?.issue = message }
@@ -138,6 +160,9 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         voice.onDiscussionEnded = { [weak self] in self?.conversationId = nil; self?.contextRevision = nil }
         do { settings = try store.load() } catch { issue = "Settings could not be read. Existing settings were preserved; save to replace them." }
         if endpoint == nil { issue = NativeFailure.invalidLocalURL.localizedDescription }
+        // Respect the persisted opt-in. Dictation injects keyboard events into
+        // whichever app owns the captured text field, so it must never be armed
+        // implicitly at startup.
         dictation.enabled = settings.dictationEnabled
         dictation.registerHotkey()
     }
@@ -147,10 +172,13 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
             brokerTask = Task { [weak self] in
                 guard let self else { return }
                 do {
-                    let bootstrap = try await self.googleBroker.startBroker()
+                    let bootstrap = try await self.nativeCoordinator.startBroker()
+                    self.brokerBootstrap = bootstrap
                     self.supervisor.brokerBootstrap = try JSONEncoder().encode(bootstrap)
                     self.brokerStarted = true
-                } catch { self.googleStatus = "Native Google broker unavailable: " + error.localizedDescription }
+                } catch {
+                    self.appleStatus = "Native system broker unavailable: " + error.localizedDescription
+                }
                 self.brokerTask = nil
             }
         }
@@ -177,6 +205,19 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         ProcessInfo.processInfo.environment["KST_TOKEN"] ?? (try? String(contentsOf: tokenURL, encoding: .utf8).trimmingCharacters(in: .whitespacesAndNewlines))
     }
 
+    private func registerLiveBrokerIfNeeded() async {
+        guard let endpoint, let token = pairingToken(), !token.isEmpty, let bootstrap = brokerBootstrap else { return }
+        var request = URLRequest(url: endpoint.appendingPathComponent("api/system/register-broker"))
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "socketPath": bootstrap.socketPath,
+            "capability": bootstrap.capability
+        ])
+        _ = try? await session.data(for: request)
+    }
+
     private func refreshSharedSettings() async {
         guard let endpoint, let token = pairingToken(), !token.isEmpty else { return }
         var request = URLRequest(url: endpoint.appendingPathComponent("api/settings"))
@@ -190,7 +231,7 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
                 settingsRevision = config.revision
                 voice.applyWakePhrase(config.wakePhrase)
             }
-        } catch { /* Health remains independent of settings access. */ }
+        } catch {}
     }
 
     private func checkHealth() async -> Bool {
@@ -202,21 +243,23 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
                   body["status"] as? String == "ok", body["app"] as? String == "kst" else {
                 connection = "Unexpected core response — retrying"; return false
             }
-            guard body["version"] as? String == "0.6.0-preview.1" else {
+            let version = body["version"] as? String ?? ""
+            guard ["0.8.0-preview.1", "0.7.0-preview.1", "0.6.0-preview.1"].contains(version) else {
                 connection = "Core update required"
                 runtimeV2Available = false
                 dictation.runtimeV2Available = false
-                issue = "The local core is older than this app and does not support the Google and dictation runtime protocol. Restart the core that owns port 4310, then retry. If kst started it, quit and reopen kst; if you started it in Terminal, stop it there and run “node scripts/kst.mjs start” again."
+                issue = "The local core version (\(version)) does not match this app. Restart the core on port 4310."
                 return false
             }
-            connection = "Local core connected"
+            connection = "Local core connected (\(version))"
             runtimeV2Available = (body["capabilities"] as? [String: Any])?["runtimeStateV2"] as? Bool == true
             dictation.runtimeV2Available = runtimeV2Available
-            if issue?.contains("older than this app") == true { issue = nil }
+            if issue?.contains("does not match") == true { issue = nil }
+            await registerLiveBrokerIfNeeded()
             await reportRuntimeState()
             await refreshSharedSettings()
             await refreshExternalResults()
-            await refreshGoogleStatus()
+            await refreshAppleAndIntelligenceStatus()
             return true
         } catch {
             connection = "Core unavailable — automatic retry enabled"
@@ -235,12 +278,21 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         case .critical: thermal = "critical"
         @unknown default: thermal = "critical"
         }
-        let voiceState = dictation.active ? dictation.heartbeatVoiceState : speech.isSpeaking ? "speaking" : !voice.active ? "off" : voice.waitingForWake ? "armed" : "discussion"
+        let isSpeaking = speech.isSpeaking || voice.isSpeakingTTS
+        let voiceState = dictation.active ? dictation.heartbeatVoiceState : isSpeaking ? "speaking" : !voice.active ? "off" : voice.waitingForWake ? "armed" : "discussion"
         var request = URLRequest(url: endpoint.appendingPathComponent(runtimeV2Available ? "api/runtime-state/v2" : "api/understanding/runtime-state"))
         request.httpMethod = "PATCH"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        var heartbeat: [String: Any] = ["clientInstanceId": clientInstanceId, "sequence": runtimeSequence, "voiceState": voiceState, "ttsActive": speech.isSpeaking, "idleSeconds": min(86400, max(0, CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .null))), "lowPowerMode": ProcessInfo.processInfo.isLowPowerModeEnabled, "thermalState": thermal]
+        var heartbeat: [String: Any] = [
+            "clientInstanceId": clientInstanceId,
+            "sequence": runtimeSequence,
+            "voiceState": voiceState,
+            "ttsActive": isSpeaking,
+            "idleSeconds": min(86400, max(0, CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .null))),
+            "lowPowerMode": ProcessInfo.processInfo.isLowPowerModeEnabled,
+            "thermalState": thermal
+        ]
         if runtimeV2Available { heartbeat["schemaVersion"] = 2; heartbeat["modeGeneration"] = dictation.modeGeneration }
         request.httpBody = try? JSONSerialization.data(withJSONObject: heartbeat)
         _ = try? await session.data(for: request)
@@ -262,15 +314,193 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
                       let created = job.createdAt.flatMap({ formatter.date(from: $0) }), created >= launchedAt else { continue }
                 shownExternalResults.insert(job.id)
                 appendMessage(role: "kst", text: "\(job.service ?? "External service") · \(job.status)\n\(text)")
-                // Background results are visual only. Speech requires a direct user request.
             }
-        } catch { /* Results stay in durable core receipts; they are never reissued here. */ }
+        } catch {}
+    }
+
+    func refreshAppleAndIntelligenceStatus() async {
+        guard let endpoint, let token = pairingToken(), !token.isEmpty else { return }
+        var appleReq = URLRequest(url: endpoint.appendingPathComponent("api/apple/status"))
+        appleReq.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let (data, response) = try? await session.data(for: appleReq),
+           (response as? HTTPURLResponse)?.statusCode == 200,
+           let value = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            let brokerOk = value["brokerAvailable"] as? Bool == true
+            let perms = value["permissions"] as? [String: Any] ?? [:]
+            let cal = perms["calendar"] as? String ?? "notDetermined"
+            let rem = perms["reminders"] as? String ?? "notDetermined"
+            let con = perms["contacts"] as? String ?? "notDetermined"
+            appleStatus = "Apple Suite (\(brokerOk ? "paired" : "offline")) · Calendar: \(cal) · Reminders: \(rem) · Contacts: \(con)"
+            if let raph = value["raphael"] as? [String: Any] {
+                if let mode = raph["workMode"] as? String {
+                    raphaelWorkMode = mode
+                }
+                if let i = raph["interruptibility"] as? Double {
+                    let pct = Int(round(i * 100))
+                    let label = i >= 0.7 ? "High" : i >= 0.4 ? "Medium" : "Focus Lock"
+                    raphaelInterruptibility = "\(label) (\(pct)%)"
+                }
+                if let curr = raph["curriculumRecommendation"] as? [String: Any],
+                   let top = curr["topRecommendation"] as? [String: Any],
+                   let name = top["topicName"] as? String {
+                    raphaelTopSkill = name
+                }
+                if let mus = raph["musicRecommendation"] as? [String: Any],
+                   let pl = mus["recommendedPlaylist"] as? String {
+                    let custom = customMusicPlaylist.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if preferredMusicStyle == "Custom Playlist…" && !custom.isEmpty {
+                        raphaelFlowMusic = custom
+                    } else if preferredMusicStyle != "Auto (Thompson Sampling)" && preferredMusicStyle != "Custom Playlist…" {
+                        raphaelFlowMusic = preferredMusicStyle
+                    } else {
+                        raphaelFlowMusic = pl
+                    }
+                }
+            }
+            if let rev = value["settingsRevision"] as? Int {
+                appleSettingsRevision = rev
+            }
+            if !appleSettingsLoaded, let appleCfg = value["settings"] as? [String: Any] {
+                appleSettingsLoaded = true
+                if let duck = appleCfg["musicAutoDuck"] as? Bool {
+                    musicAutoDuck = duck
+                }
+                if let pref = appleCfg["preferredMusicPlaylist"] as? String, !pref.isEmpty {
+                    let presets = [
+                        "Ambient Architecture", "Binaural 40Hz Gamma Flow", "Baroque String Focus",
+                        "Deep Focus Synthwave", "Lo-Fi Coding Beats", "Modern Piano Minimalism",
+                        "Acoustic Morning Briefing", "Restorative Alpha Waves"
+                    ]
+                    if presets.contains(pref) {
+                        preferredMusicStyle = pref
+                    } else {
+                        preferredMusicStyle = "Custom Playlist…"
+                        customMusicPlaylist = pref
+                    }
+                } else {
+                    preferredMusicStyle = "Auto (Thompson Sampling)"
+                }
+            }
+            if let pending = (value["pendingConfirmations"] as? [[String: Any]])?.first {
+                pendingConfirmationId = pending["confirmationId"] as? String
+                if let preview = pending["preview"] as? [String: Any] {
+                    applePreviewText = describeApplePreview(preview)
+                }
+            } else {
+                pendingConfirmationId = nil
+                applePreviewText = ""
+            }
+        }
+
+        var intelReq = URLRequest(url: endpoint.appendingPathComponent("api/intelligence/status"))
+        intelReq.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let (data, response) = try? await session.data(for: intelReq),
+           (response as? HTTPURLResponse)?.statusCode == 200,
+           let value = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let tier1A = value["tier1A"] as? [String: Any] {
+            let avail = tier1A["available"] as? Bool == true
+            let turns = value["activeConversationTurns"] as? Int ?? 0
+            intelligenceStatus = "Tier 1A: Apple Foundation Models (\(avail ? "Active" : "Deterministic Fallback")) · Rolling context: \(turns) turns"
+        }
+    }
+
+    func confirmStagedAppleAction(confirm: Bool) {
+        guard let id = pendingConfirmationId, let endpoint, let token = pairingToken() else { return }
+        var request = URLRequest(url: endpoint.appendingPathComponent("api/apple/confirm/\(id)"))
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "requestId": UUID().uuidString,
+            "decision": confirm ? "confirm" : "cancel"
+        ])
+        Task { [weak self] in
+            guard let self else { return }
+            if let (data, _) = try? await self.session.data(for: request),
+               let res = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let reply = res["reply"] as? String {
+                self.appendMessage(role: "kst", text: reply)
+                self.speak(reply)
+            }
+            await self.refreshAppleAndIntelligenceStatus()
+        }
+    }
+
+    /// Invoked immediately (`<15ms`) when `VoiceInput` detects a user barge-in or pre-speech continuation.
+    private func handleUserBargeIn(turnId: String, spokenCharIndex: Int, reason: String) {
+        speech.stopSpeaking(at: .immediate)
+        speakingID = nil
+        utteranceCharOffsets.removeAll()
+        requestTask?.cancel()
+        requestTask = nil
+        busy = false
+        if reason == "user_continuation", let pending = pendingRequest, spokenCharIndex == 0 {
+            stitchedContinuationPrefix = pending.text
+            if messages.last?.role == "You" {
+                messages.removeLast()
+            }
+        } else if spokenCharIndex > 0, let lastIdx = messages.indices.last, messages[lastIdx].role == "kst" {
+            let full = messages[lastIdx].text
+            let prefix = String(full.prefix(max(0, min(full.count, spokenCharIndex))))
+            messages[lastIdx].text = prefix + " [interrupted by user]"
+        }
+        pendingRequest = nil
+        guard let endpoint, let token = pairingToken() else { return }
+        var request = URLRequest(url: endpoint.appendingPathComponent("api/conversation/interrupt"))
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "requestId": "int-" + UUID().uuidString,
+            "turnId": turnId,
+            "spokenCharIndex": spokenCharIndex,
+            "reason": reason
+        ])
+        Task {
+            _ = try? await session.data(for: request)
+        }
+    }
+
+    /// Triggered when the user says `'total shut down'`. Cancels active speech and streaming,
+    /// clears conversation context, and puts the microphone into armed wake-word standby until
+    /// the wake phrase (`arise`) is spoken again.
+    func sleepToWakeStandby() {
+        dictation.stop()
+        speechCompletion = nil
+        speechTimeout?.cancel()
+        speakingID = nil
+        utteranceCharOffsets.removeAll()
+        speech.stopSpeaking(at: .immediate)
+        voice.stopPlaybackImmediately()
+        generation += 1
+        requestTask?.cancel()
+        requestTask = nil
+        busy = false
+        stitchedContinuationPrefix = ""
+        conversationId = nil
+        contextRevision = nil
+        pendingRequest = nil
+        applePreviewText = ""
+        pendingConfirmationId = nil
+        issue = nil
+        voice.enterWakeStandby(phrase: wakePhrase)
+        appendMessage(role: "kst", text: "Total shut down complete. Standing by—I will not listen to conversation until you call the wake phrase “\(wakePhrase)” again.")
+        Task { await reportRuntimeState() }
+
+        guard let endpoint, let token = pairingToken() else { return }
+        var request = URLRequest(url: endpoint.appendingPathComponent("api/stop"))
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONEncoder().encode(["requestId": UUID().uuidString])
+        Task {
+            _ = try? await session.data(for: request)
+        }
     }
 
     private func endDiscussion() {
         let endedConversation = conversationId
         generation += 1
-        let endedGeneration = generation
         conversationId = nil
         contextRevision = nil
         voice.endDiscussion()
@@ -280,21 +510,28 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try? JSONEncoder().encode(["requestId": UUID().uuidString, "text": "end conversation", "conversationId": endedConversation])
-        Task { [weak self] in
-            guard let self else { return }
-            do {
-                let (_, response) = try await self.session.data(for: request)
-                guard self.generation == endedGeneration else { return }
-                if (response as? HTTPURLResponse)?.statusCode != 200 { self.issue = "Discussion closed locally; core closure was not confirmed. Pending requests expire or can be cleared with Stop." }
-            } catch { if self.generation == endedGeneration { self.issue = "Discussion closed locally; the core could not confirm closure. Use Stop to revoke outstanding approvals." } }
+        Task {
+            _ = try? await session.data(for: request)
         }
     }
 
     func submit(fromVoice: Bool = false) {
-        if !fromVoice { dictation.stop(); voice.close() }
+        if !fromVoice { dictation.stop() }
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !busy else { return }
+        guard !text.isEmpty else { return }
         guard text.count <= 4000 else { issue = "Please keep each request under 4,000 characters."; return }
+        if VoiceControl.isTotalShutdown(text) {
+            draft = ""
+            appendMessage(role: "You", text: text)
+            sleepToWakeStandby()
+            return
+        }
+        if let command = VoiceControl.dictationStart(in: text) {
+            draft = ""
+            appendMessage(role: "You", text: text)
+            dictation.start(initialText: command.initialText)
+            return
+        }
         guard let endpoint else { voice.close(); issue = NativeFailure.invalidLocalURL.localizedDescription; return }
         let token = pairingToken()
         guard let token, !token.isEmpty else {
@@ -302,89 +539,128 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
             issue = "Core pairing token is missing. Start the kst core, then retry your request."
             return
         }
-        if let pendingRequest, pendingRequest.text != text {
-            voice.close()
-            issue = "The previous request has an uncertain result. Retry its original text with the same request ID, or Stop and check receipts before starting a different request."
-            return
+
+        // If user submits while a previous turn is still speaking, interrupt the previous turn first
+        if voice.isSpeakingTTS || speech.isSpeaking {
+            voice.stopPlaybackImmediately()
+            speech.stopSpeaking(at: .immediate)
+            speakingID = nil
+            utteranceCharOffsets.removeAll()
         }
-        let pending = pendingRequest ?? PendingRequest(id: UUID().uuidString, text: text, conversationId: conversationId, contextRevision: contextRevision, source: fromVoice ? "voice" : "typed")
-        if pendingRequest == nil { appendMessage(role: "You", text: text) }
+        requestTask?.cancel()
+
+        let turnId = "trn_" + UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(16)
+        let pending = PendingRequest(
+            id: UUID().uuidString,
+            turnId: String(turnId),
+            text: text,
+            conversationId: conversationId,
+            contextRevision: contextRevision,
+            source: fromVoice ? "voice" : "typed"
+        )
+        appendMessage(role: "You", text: text)
         pendingRequest = pending
         draft = ""
         generation += 1
         let acceptedGeneration = generation
         busy = true
-        Task { await reportRuntimeState() }
         issue = nil
-        speech.stopSpeaking(at: .immediate)
-        var request = URLRequest(url: endpoint.appendingPathComponent("api/conversation"))
+        if fromVoice {
+            voice.markThinkingPreSpeech(turnId: pending.turnId)
+        }
+        Task { await reportRuntimeState() }
+
+        var request = URLRequest(url: endpoint.appendingPathComponent("api/conversation/stream"))
         request.httpMethod = "POST"
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        var body: [String: Any] = ["requestId": pending.id, "text": pending.text, "source": pending.source]
+        var body: [String: Any] = [
+            "requestId": pending.id,
+            "turnId": pending.turnId,
+            "text": pending.text,
+            "source": pending.source
+        ]
         if let revision = pending.contextRevision { body["contextRevision"] = revision }
         if let conversationId = pending.conversationId { body["conversationId"] = conversationId }
         request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
         requestTask = Task { [weak self] in
             guard let self else { return }
             defer { if self.generation == acceptedGeneration { self.busy = false } }
             do {
-                var (data, response) = try await self.session.data(for: request)
-                for _ in 0..<30 where (response as? HTTPURLResponse)?.statusCode == 202 {
+                let (bytes, response) = try await self.session.bytes(for: request)
+                guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+                    self.pendingRequest = nil
+                    self.issue = "The local core rejected the streaming request."
+                    return
+                }
+                var currentEvent = ""
+                var assembledText = ""
+                var messageInserted = false
+                let resolvedVoice = self.resolveMaleVoice()
+
+                for try await line in bytes.lines {
                     try Task.checkCancellation()
-                    try await Task.sleep(for: .seconds(1))
                     guard self.generation == acceptedGeneration else { return }
-                    let pendingReceipt = ((try? JSONSerialization.jsonObject(with: data)) as? [String: Any])?["receiptURL"] as? String
-                    let safeReceipt = pendingReceipt?.hasPrefix("/api/google/requests/") == true ? pendingReceipt! : "api/understanding/requests/\(pending.id)"
-                    var poll = URLRequest(url: endpoint.appendingPathComponent(safeReceipt))
-                    poll.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-                    (data, response) = try await self.session.data(for: poll)
-                    if let receipt = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                        if let failure = receipt["error"] as? [String: Any] {
-                            self.issue = failure["message"] as? String ?? "Google request failed."
+                    if line.hasPrefix("event:") {
+                        currentEvent = line.dropFirst(6).trimmingCharacters(in: .whitespaces)
+                    } else if line.hasPrefix("data:") {
+                        let rawJSON = line.dropFirst(5).trimmingCharacters(in: .whitespaces)
+                        guard let data = rawJSON.data(using: .utf8),
+                              let payload = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { continue }
+                        switch currentEvent {
+                        case "clause":
+                            let clauseText = payload["text"] as? String ?? ""
+                            let charStart = payload["charStart"] as? Int ?? assembledText.count
+                            assembledText += clauseText
+                            if !messageInserted {
+                                self.appendMessage(role: "kst", text: assembledText)
+                                messageInserted = true
+                            } else if let idx = self.messages.indices.last {
+                                self.messages[idx].text = assembledText
+                            }
+                            if self.settings.spokenReplies, let resolvedVoice, !clauseText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                self.voice.markSpeakingClause(
+                                    turnId: pending.turnId,
+                                    fullAccumulatedText: assembledText
+                                )
+                                let utterance = AVSpeechUtterance(string: clauseText)
+                                utterance.voice = resolvedVoice
+                                utterance.rate = 0.55
+                                utterance.pitchMultiplier = 1.0
+                                let id = ObjectIdentifier(utterance)
+                                self.utteranceCharOffsets[id] = charStart
+                                self.speakingID = id
+                                self.speech.speak(utterance)
+                            }
+                        case "confirmation_staged":
+                            self.pendingConfirmationId = payload["confirmationId"] as? String
+                            if let preview = payload["preview"] as? [String: Any] {
+                                self.applePreviewText = self.describeApplePreview(preview)
+                            }
+                        case "done":
+                            if let full = payload["fullText"] as? String, !full.isEmpty {
+                                if !messageInserted {
+                                    self.appendMessage(role: "kst", text: full)
+                                } else if let idx = self.messages.indices.last {
+                                    self.messages[idx].text = full
+                                }
+                            }
+                            self.conversationId = payload["conversationId"] as? String ?? self.conversationId
                             self.pendingRequest = nil
-                            self.voice.close()
-                            return
+                            await self.refreshAppleAndIntelligenceStatus()
+                        case "error":
+                            self.issue = payload["message"] as? String ?? "Turn failed."
+                            self.pendingRequest = nil
+                        default:
+                            break
                         }
-                        if let final = receipt["response"] as? [String: Any], final["reply"] != nil { data = try JSONSerialization.data(withJSONObject: final); break }
-                        if ["PREPARED", "DISPATCHING"].contains(receipt["state"] as? String ?? "") { if safeReceipt.hasPrefix("/api/google/requests/") { var next = receipt; next["receiptURL"] = safeReceipt; data = try JSONSerialization.data(withJSONObject: next) }; response = HTTPURLResponse(url: poll.url!, statusCode: 202, httpVersion: nil, headerFields: nil)! }
                     }
                 }
-                guard self.generation == acceptedGeneration else { return }
-                let httpResponse = response as? HTTPURLResponse
-                guard let httpResponse, httpResponse.statusCode == 200 else {
-                    self.draft = text
-                    let details = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
-                    let error = details?["error"] as? [String: Any]
-                    self.issue = error?["message"] as? String ?? "The result is pending or unverified. Review its receipt before repeating it."
-                    if httpResponse?.statusCode == 409 || httpResponse?.statusCode == 400 {
-                        self.pendingRequest = nil
-                        self.contextRevision = nil
-                        self.voice.resume()
-                    } else { self.voice.close() }
-                    return
-                }
-                if let payload = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], payload["executionState"] as? String == "UNKNOWN" {
-                    self.voice.close()
-                    self.draft = text
-                    self.issue = "Execution is uncertain. Review request \(pending.id) before sending another action."
-                    return
-                }
-                if let value = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any], let cloud = value["google"] as? [String: Any], let preview = cloud["preview"] as? [String: Any] {
-                    self.googlePreviewText = self.describeGooglePreview(preview)
-                    NotificationCenter.default.post(name: Notification.Name("kstShowGooglePreview"), object: nil)
-                }
-                let reply = try JSONDecoder().decode(CoreReply.self, from: data)
-                self.pendingRequest = nil
-                self.conversationId = reply.conversationId
-                self.contextRevision = reply.understanding?.contextRevision ?? reply.contextRevision
-                self.appendMessage(role: "kst", text: reply.reply)
-                self.speak(reply.reply)
             } catch {
                 guard self.generation == acceptedGeneration, !Task.isCancelled else { return }
-                self.draft = text
-                self.voice.close()
-                self.issue = "No verified response was received. Check the core before retrying; the request was not automatically repeated."
+                self.pendingRequest = nil
+                self.issue = "Connection interrupted or core unavailable."
             }
         }
     }
@@ -394,19 +670,10 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         if messages.count > 80 { messages.removeFirst(messages.count - 80) }
     }
 
-    func speak(_ text: String, completion: (() -> Void)? = nil, dictationAcknowledgment: Bool = false) {
-        guard !dictation.active || dictationAcknowledgment else { return }
-        guard settings.spokenReplies else { if let completion { completion() } else if !dictation.active { voice.resume() }; return }
-        speechCompletion = nil
-        speechTimeout?.cancel()
-        speakingID = nil
-        speech.stopSpeaking(at: .immediate)
-        let utterance = AVSpeechUtterance(string: String(text.prefix(1200)))
-        // Resolve from Apple's live catalog first: identifiers differ between
-        // compact/enhanced installations, and gender may initially be unspecified.
+    private func resolveMaleVoice() -> AVSpeechSynthesisVoice? {
         let preferredNames = ["Daniel", "Rishi", "Aman", "Fred"]
         let available = AVSpeechSynthesisVoice.speechVoices()
-        let maleVoice = available.filter { candidate in
+        return available.filter { candidate in
             candidate.language.hasPrefix("en") &&
             candidate.gender != .female &&
             (candidate.gender == .male || preferredNames.contains(candidate.name))
@@ -415,80 +682,105 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
             let rightRank = preferredNames.firstIndex(of: right.name) ?? preferredNames.count
             if leftRank != rightRank { return leftRank < rightRank }
             if left.quality != right.quality { return left.quality.rawValue > right.quality.rawValue }
-            // Prefer compact Daniel when both catalog variants are registered.
             return left.identifier < right.identifier
         }.first ?? AVSpeechSynthesisVoice(identifier: "com.apple.speech.synthesis.voice.Fred")
-        guard let maleVoice else {
+    }
+
+    func speak(_ text: String, completion: (() -> Void)? = nil, dictationAcknowledgment: Bool = false) {
+        guard !dictation.active || dictationAcknowledgment else { return }
+        guard settings.spokenReplies else {
+            if let completion { completion() } else if !dictation.active { voice.markSpeechFinished() }
+            return
+        }
+        guard let maleVoice = resolveMaleVoice() else {
             issue = "Apple could not provide an installed male voice. The reply remains visible."
-            if dictation.active { dictation.stop() } else { voice.resume() }
+            if dictation.active { dictation.stop() } else { voice.markSpeechFinished() }
             return
         }
         speechCompletion = completion
+        speechTimeout?.cancel()
+        speakingID = nil
+        utteranceCharOffsets.removeAll()
+        speech.stopSpeaking(at: .immediate)
+        let clipped = String(text.prefix(1200))
+        let utterance = AVSpeechUtterance(string: clipped)
         utterance.voice = maleVoice
-        utterance.rate = 0.52
+        utterance.rate = 0.57
         utterance.pitchMultiplier = 1.0
-        speakingID = ObjectIdentifier(utterance)
-        voice.speaking()
+        let id = ObjectIdentifier(utterance)
+        speakingID = id
+        utteranceCharOffsets[id] = 0
+        if !dictationAcknowledgment && voice.active && voice.mode == .assistant {
+            let turnId = "trn_" + UUID().uuidString.prefix(8)
+            voice.markSpeakingClause(turnId: String(turnId), fullAccumulatedText: clipped)
+        } else {
+            voice.speaking()
+        }
         speech.speak(utterance)
+    }
+
+    nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, willSpeakRangeOfSpeechString characterRange: NSRange, utterance: AVSpeechUtterance) {
         let identifier = ObjectIdentifier(utterance)
-        speechTimeout = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(60))
-            guard let self, !Task.isCancelled, self.speakingID == identifier else { return }
-            self.speakingID = nil
-            self.speech.stopSpeaking(at: .immediate)
-            self.voice.close()
-            self.speechCompletion = nil
-            if self.dictation.active { self.dictation.stop() }
-            self.issue = "Speech playback did not complete within its deadline. Listening is off; the verified response remains visible."
+        let rangeEnd = characterRange.location + characterRange.length
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let baseOffset = self.utteranceCharOffsets[identifier] ?? 0
+            self.voice.updateLiveSpokenCharIndex(baseOffset + rangeEnd)
         }
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
         let identifier = ObjectIdentifier(utterance)
         Task { @MainActor [weak self] in
-            guard let self, self.speakingID == identifier else { return }
+            guard let self else { return }
+            self.utteranceCharOffsets.removeValue(forKey: identifier)
+            guard self.speakingID == identifier else { return }
             self.speakingID = nil
             self.speechTimeout?.cancel()
             let completion = self.speechCompletion
             self.speechCompletion = nil
-            if let completion { completion() } else if !self.dictation.active { self.voice.resume() }
+            if let completion {
+                completion()
+            } else if !self.dictation.active {
+                self.voice.markSpeechFinished()
+            }
         }
     }
 
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
         let identifier = ObjectIdentifier(utterance)
         Task { @MainActor [weak self] in
-            guard let self, self.speakingID == identifier else { return }
+            guard let self else { return }
+            self.utteranceCharOffsets.removeValue(forKey: identifier)
+            guard self.speakingID == identifier else { return }
             self.speakingID = nil
             self.speechTimeout?.cancel()
-            // Cancellation does not silently reopen a microphone.
             self.speechCompletion = nil
-            if self.dictation.active { self.dictation.stop() }
-            self.voice.close()
         }
     }
 
     func startListening(armed: Bool = false) {
         dictation.stop()
         speechCompletion = nil
-        guard !busy, pendingRequest == nil else {
-            issue = "Finish or reconcile the pending request before starting voice capture."
-            return
-        }
         speakingID = nil
+        utteranceCharOffsets.removeAll()
         speech.stopSpeaking(at: .immediate)
+        voice.stopPlaybackImmediately()
         issue = nil
         voice.startConversation(armedPhrase: armed ? wakePhrase : nil)
     }
 
     func stop(stopDictation: Bool = true) {
         stopAcknowledgment = Task { false }
-        googlePreviewText = ""
+        applePreviewText = ""
+        pendingConfirmationId = nil
+        stitchedContinuationPrefix = ""
         if stopDictation { dictation.stop() }
         speechCompletion = nil
         voice.close()
         speechTimeout?.cancel()
         speakingID = nil
+        utteranceCharOffsets.removeAll()
         generation += 1
         requestTask?.cancel()
         requestTask = nil
@@ -497,7 +789,7 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         conversationId = nil
         contextRevision = nil
         pendingRequest = nil
-        issue = "Discussion stopped. A request already accepted by the core may have completed; check its receipt before retrying."
+        issue = "Discussion stopped. Pending uncommitted turns were cancelled."
         guard let endpoint, let token = pairingToken() else { return }
         let stopGeneration = generation
         var request = URLRequest(url: endpoint.appendingPathComponent("api/stop"))
@@ -510,12 +802,8 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
             do {
                 let (_, response) = try await self.session.data(for: request)
                 guard self.generation == stopGeneration else { return false }
-                let accepted = (response as? HTTPURLResponse)?.statusCode == 200
-                if !accepted { self.issue = "Core cancellation was not verified; inspect pending work in Dashboard." }
-                return accepted
+                return (response as? HTTPURLResponse)?.statusCode == 200
             } catch {
-                guard self.generation == stopGeneration else { return false }
-                self.issue = "Core cancellation was not acknowledged. Inspect pending work before retrying."
                 return false
             }
         }
@@ -555,77 +843,105 @@ final class AppModel: NSObject, ObservableObject, AVSpeechSynthesizerDelegate {
         } catch { issue = error.localizedDescription; savedNotice = "" }
     }
 
-    private func describeGooglePreview(_ preview: [String: Any]) -> String {
-        let fields = [("from", "From"), ("to", "To"), ("cc", "Cc"), ("subject", "Subject"), ("title", "Title"), ("calendarName", "Calendar"), ("start", "Starts"), ("end", "Ends"), ("timeZone", "Timezone"), ("attendees", "Guests"), ("body", "Message"), ("mode", "Action"), ("messageCount", "Messages"), ("sendUpdates", "Guest notifications")]
+    private func describeApplePreview(_ preview: [String: Any]) -> String {
+        let fields = [("app", "App"), ("to", "To"), ("subject", "Subject"), ("body", "Message"), ("mode", "Action")]
         var lines: [String] = []
-        for (key, label) in fields { if let value = preview[key] { lines.append(label + ": " + ((value as? [String])?.joined(separator: ", ") ?? String(describing: value))) } }
-        if preview["conflictOverrideRequired"] as? Bool == true { lines.append("This interval has a conflict. Review it in Dashboard and explicitly choose whether to proceed.") }
-        if preview["sourceDraftRetained"] as? Bool == true { lines.append("The source draft remains in Gmail.") }
-        if let blocks = preview["blocks"] as? [[String: Any]] { for (index, block) in blocks.enumerated() { lines.append("Block \(index + 1)\n" + describeGooglePreview(block)) } }
+        for (key, label) in fields {
+            if let value = preview[key] {
+                lines.append("\(label): \(value)")
+            }
+        }
         return lines.joined(separator: "\n")
     }
+
     func configureDictationShortcut() {
         dictation.registerHotkey(keyCode: UInt32(dictationShortcutCode), modifiers: UInt32(controlKey | optionKey))
     }
+
     func configureDictation() {
         dictation.enabled = settings.dictationEnabled
         do { try store.save(settings) } catch { issue = "Dictation preference could not be saved." }
     }
-    func refreshGoogleStatus() async {
-        do {
-            let value = try await googleRequest("status")
-            if let operations = value["operations"] as? [[String: Any]] {
-                let formatter = ISO8601DateFormatter(); formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-                shownGoogleResults.formIntersection(Set(operations.compactMap { $0["operationId"] as? String }))
-                for operation in operations.reversed() {
-                    guard let id = operation["operationId"] as? String, let state = operation["state"] as? String,
-                          ["SUCCEEDED", "FAILED", "UNKNOWN"].contains(state), !shownGoogleResults.contains(id),
-                          let timestamp = operation["createdAt"] as? String, let created = formatter.date(from: timestamp), created >= launchedAt else { continue }
-                    shownGoogleResults.insert(id)
-                    let result = operation["result"] as? [String: Any]
-                    appendMessage(role: "kst", text: "Google · " + state + "\n" + (result?["message"] as? String ?? result?["code"] as? String ?? "Review the exact operation receipt in Dashboard."))
-                }
-            }
-            let account = value["account"] as? [String: Any]
-            let connectionState = value["connection"] as? String ?? "DISCONNECTED"
-            googleConnected = ["CONNECTED", "AUTHORIZING", "REAUTH_REQUIRED"].contains(connectionState)
-            googleAuthorizing = connectionState == "AUTHORIZING"
-            googleGeneration = account?["generation"] as? Int ?? value["generation"] as? Int ?? 0
-            if let account { googleStatus = "Google · \(account["email"] as? String ?? "account") · \(account["status"] as? String ?? "unknown")" }
-            else { googleStatus = value["brokerAvailable"] as? Bool == true ? "Google · " + connectionState + (value["setupRequired"] as? Bool == true ? " · desktop OAuth configuration required" : "") : "Google unavailable · reopen kst to pair the native broker" }
-        } catch { googleStatus = error.localizedDescription }
+
+    func executeCommand(_ command: String) {
+        draft = command
+        submit(fromVoice: false)
     }
-    private func googleRequest(_ path: String, body: [String: Any]? = nil) async throws -> [String: Any] {
-        guard let endpoint, let token = pairingToken() else { throw NSError(domain: "kst", code: 1, userInfo: [NSLocalizedDescriptionKey: "Connect to the local core first."]) }
-        var request = URLRequest(url: endpoint.appendingPathComponent("api/google/" + path))
-        request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
-        if let body { request.httpMethod = "POST"; request.setValue("application/json", forHTTPHeaderField: "Content-Type"); request.httpBody = try JSONSerialization.data(withJSONObject: body) }
-        let (data, response) = try await session.data(for: request)
-        let value = try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
-        guard let code = (response as? HTTPURLResponse)?.statusCode, (200...202).contains(code) else {
-            let error = value["error"] as? [String: Any]
-            throw NSError(domain: "kst", code: 2, userInfo: [NSLocalizedDescriptionKey: error?["message"] as? String ?? "Google action could not be confirmed."])
+
+    func openCoreLog() {
+        let logURL = CoreSupervisor.coreLogURL
+        let fm = FileManager.default
+        let logsDir = logURL.deletingLastPathComponent()
+        try? fm.createDirectory(at: logsDir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        if !fm.fileExists(atPath: logURL.path) {
+            fm.createFile(atPath: logURL.path, contents: nil, attributes: [.posixPermissions: 0o600])
         }
-        return value
+        NSWorkspace.shared.open(logURL)
     }
-    func connectGoogle() {
+
+    func restartCore() {
+        supervisor.restartCore()
+        retry()
+        savedNotice = "Core restart requested. Logs are saved to ~/Library/Logs/kst-core.log."
+    }
+
+    func saveMusicPreferences() {
+        guard let endpoint, let token = pairingToken() else {
+            issue = "Connect to the core and Retry before saving music preferences."
+            return
+        }
+        let resolvedPlaylist: String
+        if preferredMusicStyle == "Auto (Thompson Sampling)" {
+            resolvedPlaylist = ""
+        } else if preferredMusicStyle == "Custom Playlist…" {
+            resolvedPlaylist = customMusicPlaylist.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            resolvedPlaylist = preferredMusicStyle
+        }
+        var request = URLRequest(url: endpoint.appendingPathComponent("api/apple/settings"))
+        request.httpMethod = "PATCH"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: [
+            "expectedRevision": appleSettingsRevision,
+            "preferredMusicPlaylist": resolvedPlaylist,
+            "musicAutoDuck": musicAutoDuck
+        ])
+        issue = nil
         Task { [weak self] in
             guard let self else { return }
             do {
-                _ = try await self.googleRequest("connect", body: ["requestId": UUID().uuidString, "capabilityProfile": ["gmailRead": true, "gmailCompose": self.googleCompose, "gmailModify": self.googleModify, "calendarRead": true, "calendarWrite": self.googleCalendarWrite]])
-                self.googleStatus = "Google authorization requested · complete consent in your browser"
-                self.googleAuthorizing = true
-            } catch { self.googleStatus = error.localizedDescription }
+                let (data, response) = try await self.session.data(for: request)
+                guard (response as? HTTPURLResponse)?.statusCode == 200,
+                      let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    self.issue = "Music preference was not saved. Press Retry to refresh the settings revision."
+                    return
+                }
+                if let rev = obj["settingsRevision"] as? Int {
+                    self.appleSettingsRevision = rev
+                }
+                if !resolvedPlaylist.isEmpty {
+                    self.raphaelFlowMusic = resolvedPlaylist
+                }
+                self.savedNotice = resolvedPlaylist.isEmpty
+                    ? "Music preference saved (Auto via Thompson Sampling)."
+                    : "Music preference saved (“\(resolvedPlaylist)”)."
+            } catch {
+                self.issue = "Could not save music preference. Press Retry and try again."
+            }
         }
     }
-    func disconnectGoogle() {
-        Task { [weak self] in
-            guard let self else { return }
-            do { _ = try await self.googleRequest("disconnect", body: ["requestId": UUID().uuidString, "expectedAccountGeneration": self.googleGeneration]); await self.refreshGoogleStatus() }
-            catch { self.googleStatus = error.localizedDescription }
-        }
+
+    func shutdown() {
+        stop()
+        dictation.shutdown()
+        brokerTask?.cancel()
+        Task { await nativeCoordinator.shutdown() }
+        desktop.disable()
+        healthTask?.cancel()
+        session.invalidateAndCancel()
+        supervisor.shutdown()
     }
-    func shutdown() { stop(); dictation.shutdown(); brokerTask?.cancel(); Task { await googleBroker.shutdown() }; desktop.disable(); healthTask?.cancel(); session.invalidateAndCancel(); supervisor.shutdown() }
 }
 
 /// A local response can never redirect pairing credentials to an external service.
@@ -641,44 +957,55 @@ struct ContentView: View {
     @ObservedObject var desktop: DesktopSignals
     @ObservedObject var supervisor: CoreSupervisor
     @ObservedObject var dictation: AudioModeCoordinator
-    init(model: AppModel) { self.model = model; self.voice = model.voice; self.desktop = model.desktop; self.supervisor = model.supervisor; self.dictation = model.dictation }
+    init(model: AppModel) {
+        self.model = model
+        self.voice = model.voice
+        self.desktop = model.desktop
+        self.supervisor = model.supervisor
+        self.dictation = model.dictation
+    }
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
                 if let logo = Bundle.main.url(forResource: "kst-logo", withExtension: "png"), let image = NSImage(contentsOf: logo) {
                     Image(nsImage: image).resizable().scaledToFit().frame(width: 100, height: 40)
                 }
                 VStack(alignment: .leading) {
                     Text("kst").font(.system(size: 34, weight: .bold, design: .rounded))
-                    Text("Your personal assistant · 0.6 preview").foregroundStyle(.secondary)
+                    Text("KST v0.8 · Raphael (Great Sage) Personal Work Operator").foregroundStyle(.secondary)
                 }
                 Spacer()
                 Button("Stop", role: .destructive) { model.stop() }.keyboardShortcut(".", modifiers: .command)
             }
             HStack {
-                Circle().fill(model.connection == "Local core connected" ? .green : .orange).frame(width: 8, height: 8)
+                Circle().fill(model.connection.hasPrefix("Local core connected") ? .green : .orange).frame(width: 8, height: 8)
                 Text(model.connection).font(.callout)
                 Spacer()
                 Button("Dashboard") { model.openDashboard() }
                 Button("Retry") { model.retry() }
             }
+            Text(model.intelligenceStatus).font(.caption).foregroundStyle(.secondary)
+            Text(model.appleStatus).font(.caption2).foregroundStyle(.secondary)
             if !supervisor.status.isEmpty { Text(supervisor.status).font(.caption2).foregroundStyle(.secondary) }
             HStack {
                 Text(voice.status).font(.caption).foregroundStyle(voice.active ? Color.orange : Color.secondary)
                 Spacer()
                 if voice.active {
+                    if !voice.waitingForWake {
+                        Button("Total shut down") { model.sleepToWakeStandby() }
+                    }
                     Button("Finish turn") { voice.finishTurn() }
                 } else {
-                    Button("Start listening") { model.startListening() }.disabled(model.busy)
-                    Button("Arm wake phrase") { model.startListening(armed: true) }.disabled(model.busy || model.wakePhrase.isEmpty)
+                    Button("Start 2-way voice") { model.startListening() }
+                    Button("Arm wake phrase") { model.startListening(armed: true) }.disabled(model.wakePhrase.isEmpty)
                 }
             }
+            Text(voice.voiceFilterStatus).font(.caption2).foregroundStyle(.secondary)
             if !voice.partialTranscript.isEmpty {
                 Text(voice.partialTranscript).font(.callout).foregroundStyle(.secondary).lineLimit(3)
             }
             Text(dictation.status).font(.caption).foregroundStyle(dictation.active ? Color.orange : Color.secondary)
-            Text("Focus a text field and say “start typing” while assistant listening is active. Say “stop dictation” to finish; \(dictation.hotkeyDescription) is an optional fallback.").font(.caption2).foregroundStyle(.secondary)
-            Text("On-device English speech · microphone pauses during replies · armed audio stays in RAM").font(.caption2).foregroundStyle(.secondary)
+            Text("Say “total shut down” to sleep until “\(model.wakePhrase)” · Voice-band noise suppression & speaker F0 lock reject background music lyrics.").font(.caption2).foregroundStyle(.secondary)
             HStack {
                 Text(desktop.status).font(.caption2).foregroundStyle(.secondary)
                 Spacer()
@@ -686,9 +1013,69 @@ struct ContentView: View {
                     if desktop.enabled { desktop.disable() } else { desktop.enable() }
                 }
             }
-            if !model.googlePreviewText.isEmpty {
-                GroupBox("Review Google action · confirm only the displayed content") {
-                    ScrollView { Text(model.googlePreviewText).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading) }.frame(maxHeight: 180)
+            GroupBox("Raphael Personal Work Operator (Local ML)") {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        Text(model.raphaelWorkMode)
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(Color.blue.opacity(0.18), in: RoundedRectangle(cornerRadius: 6))
+                        Text("Interruptibility: \(model.raphaelInterruptibility)")
+                            .font(.caption2.weight(.medium))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(Color.green.opacity(0.18), in: RoundedRectangle(cornerRadius: 6))
+                        Spacer()
+                        Text("🎧 \(model.raphaelFlowMusic)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    if !model.raphaelTopSkill.isEmpty {
+                        Text("🎯 FSRS-4.5 Skill: \(model.raphaelTopSkill)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 6)], alignment: .leading, spacing: 6) {
+                        Button("Briefing") { model.executeCommand("Raphael status report") }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Button("What to Learn") { model.executeCommand("What should I learn next?") }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Button("Focus DJ") { model.executeCommand("Play music for deep architecture") }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Button("Brief Gemini") { model.executeCommand("Brief Gemini on my active task") }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Button("Capture Tasks") { model.executeCommand("Capture action items from Gemini") }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Button("Terminal Sentinel") { model.executeCommand("Explain my last terminal error") }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                .padding(.vertical, 2)
+            }
+            if !model.applePreviewText.isEmpty {
+                GroupBox("Confirm Outbound Apple Action (Two-Stage Gate)") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(model.applePreviewText).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                        HStack {
+                            Button("Confirm & Send") { model.confirmStagedAppleAction(confirm: true) }.buttonStyle(.borderedProminent)
+                            Button("Cancel") { model.confirmStagedAppleAction(confirm: false) }
+                        }
+                    }
                 }
             }
             if let issue = model.issue {
@@ -709,38 +1096,48 @@ struct ContentView: View {
                 }
             }.frame(minHeight: 220)
             HStack {
-                TextField("Ask kst…", text: $model.draft).textFieldStyle(.roundedBorder).onSubmit { model.submit() }
-                Button(model.busy ? "Waiting…" : "Send") { model.submit() }.disabled(model.busy || model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                TextField("Ask Raphael (Calendar, Schedule Plan, Skill Coach, Music DJ, Gemini Companion)…", text: $model.draft).textFieldStyle(.roundedBorder).onSubmit { model.submit() }
+                Button(model.busy ? "Streaming…" : "Send") { model.submit() }.disabled(model.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             DisclosureGroup("Settings") {
                 VStack(alignment: .leading, spacing: 10) {
                     TextField("Shared wake phrase", text: $model.wakePhrase).textFieldStyle(.roundedBorder)
-                    Text("Armed mode recognizes this phrase through local Apple speech. It consumes more power than a trained keyword detector; accuracy and battery use require hardware testing.").font(.caption).foregroundStyle(.secondary)
-                    Toggle("Speak replies using an Apple male voice · medium pace", isOn: $model.settings.spokenReplies)
-                    Toggle("Enable dictation", isOn: $model.settings.dictationEnabled).onChange(of: model.settings.dictationEnabled) { _, _ in model.configureDictation() }
+                    Toggle("Speak replies using an Apple male voice · full-duplex barge-in enabled", isOn: $model.settings.spokenReplies)
+                    Toggle("Enable dictation (“start typing”)", isOn: $model.settings.dictationEnabled).onChange(of: model.settings.dictationEnabled) { _, _ in model.configureDictation() }
                     Picker("Dictation shortcut", selection: $model.dictationShortcutCode) {
                         Text("Control+Option+D").tag(2)
                         Text("Control+Option+J").tag(38)
                         Text("Control+Option+K").tag(40)
                     }.onChange(of: model.dictationShortcutCode) { _, _ in model.configureDictationShortcut() }
-                    Text("This enables voice-start dictation; it does not turn on the microphone by itself. Focus a text field, then say “start typing” during assistant listening, or “arise, start typing” from wake standby. No per-session KST click or shortcut is needed; the hotkey is an optional fallback.").font(.caption).foregroundStyle(.secondary)
-                    Text("Dictation uses Accessibility plus the existing microphone/speech permissions. It types only into supported focused fields; terminal submission is excluded.").font(.caption).foregroundStyle(.secondary)
-                    Divider()
-                    Text(model.googleStatus).font(.caption)
-                    Toggle("Google Gmail drafts and sending", isOn: $model.googleCompose)
-                    Toggle("Google Gmail labels and trash", isOn: $model.googleModify)
-                    Toggle("Google Calendar changes", isOn: $model.googleCalendarWrite)
-                    HStack {
-                        Button("Sign in to Google · Gmail & Calendar") { model.connectGoogle() }.disabled(model.googleAuthorizing)
-                        Button("Disconnect Google") { model.disconnectGoogle() }.disabled(!model.googleConnected)
-                    }
-                    Text("The Google checkboxes select access to request; they do not open sign-in. Click Sign in to Google, then review and approve the access on Google's page.").font(.caption).foregroundStyle(.secondary)
-                    Text("Writes require a content preview and confirmation. Configure calendars and review receipts in Dashboard.").font(.caption).foregroundStyle(.secondary)
                     Button("Save preferences") { model.saveSettings() }
+                    Divider()
+                    Picker("Focus music preference", selection: $model.preferredMusicStyle) {
+                        Text("Auto (Thompson Sampling)").tag("Auto (Thompson Sampling)")
+                        Text("Ambient Architecture").tag("Ambient Architecture")
+                        Text("Binaural 40Hz Gamma Flow").tag("Binaural 40Hz Gamma Flow")
+                        Text("Baroque String Focus").tag("Baroque String Focus")
+                        Text("Deep Focus Synthwave").tag("Deep Focus Synthwave")
+                        Text("Lo-Fi Coding Beats").tag("Lo-Fi Coding Beats")
+                        Text("Modern Piano Minimalism").tag("Modern Piano Minimalism")
+                        Text("Acoustic Morning Briefing").tag("Acoustic Morning Briefing")
+                        Text("Restorative Alpha Waves").tag("Restorative Alpha Waves")
+                        Text("Custom Playlist…").tag("Custom Playlist…")
+                    }
+                    if model.preferredMusicStyle == "Custom Playlist…" {
+                        TextField("Apple Music playlist name", text: $model.customMusicPlaylist).textFieldStyle(.roundedBorder)
+                    }
+                    Toggle("Auto-duck Apple Music during voice replies", isOn: $model.musicAutoDuck)
+                    Button("Save music preference") { model.saveMusicPreferences() }
+                    Divider()
+                    HStack(spacing: 8) {
+                        Button("Open Core Log") { model.openCoreLog() }
+                        Button("Restart Core") { model.restartCore() }
+                    }
+                    Text("Core logs: ~/Library/Logs/kst-core.log (5 MB rotation)").font(.caption2).foregroundStyle(.secondary)
                     if !model.savedNotice.isEmpty { Text(model.savedNotice).font(.caption).foregroundStyle(.secondary) }
                 }.padding(.top, 8)
             }
-        }.padding(24).frame(minWidth: 620, minHeight: 590)
+        }.padding(24).frame(minWidth: 640, minHeight: 600)
     }
 }
 
@@ -765,7 +1162,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let iconURL = Bundle.main.url(forResource: "kst-icon", withExtension: "png"), let icon = NSImage(contentsOf: iconURL) {
             NSApp.applicationIconImage = icon
         }
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 720, height: 740), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 740, height: 760), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
         window.title = "kst"
         window.contentView = NSHostingView(rootView: ContentView(model: model))
         window.isReleasedWhenClosed = false
@@ -776,19 +1173,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.addItem(withTitle: "Open kst", action: #selector(showWindow), keyEquivalent: "")
         menu.addItem(withTitle: "Start / stop dictation", action: #selector(toggleDictation), keyEquivalent: "")
+        menu.addItem(withTitle: "Total shut down (sleep until wake phrase)", action: #selector(sleepToWake), keyEquivalent: "")
         menu.addItem(withTitle: "Stop discussion and speech", action: #selector(stop), keyEquivalent: ".")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit kst", action: #selector(quit), keyEquivalent: "q")
         for entry in menu.items { entry.target = self }
         item?.menu = menu
         model.beginHealthChecks()
-        NotificationCenter.default.addObserver(self, selector: #selector(showWindow), name: Notification.Name("kstShowGooglePreview"), object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(sessionLocked), name: NSWorkspace.sessionDidResignActiveNotification, object: nil)
         showWindow()
     }
 
     @objc func showWindow() { NSApp.activate(ignoringOtherApps: true); window?.makeKeyAndOrderFront(nil) }
     @objc func toggleDictation() { model?.dictation.toggle() }
+    @objc func sleepToWake() { model?.sleepToWakeStandby() }
     @objc func stop() { model?.stop() }
     @objc func sessionLocked() { model?.stop() }
     @objc func quit() { NSApp.terminate(nil) }
