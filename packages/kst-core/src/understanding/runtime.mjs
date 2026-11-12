@@ -8,7 +8,7 @@ import { extractFeatures, encodeFeatures, decodeFeatures } from './features.mjs'
 import { createCoordinator } from './coordinator.mjs';
 import { createLearningService } from './learning.mjs';
 const resources=join(dirname(fileURLToPath(import.meta.url)),'../../resources/understanding');
-export function createUnderstanding({dataDir,engine,workspace,terminal,external,secretary,mode:requested,resourceDir=resources}={}) {
+export function createUnderstanding({dataDir,engine,workspace,terminal,external,secretary,apple,mode:requested,resourceDir=resources}={}) {
   let persistedMode, userRequestedPreview=false;
   const config=join(dataDir,'understanding-activation.json');
   if(existsSync(config)){const stat=lstatSync(config);if(stat.isSymbolicLink()||!stat.isFile()||stat.uid!==process.getuid())throw Error('Unsafe understanding activation file');const value=JSON.parse(readFileSync(config,'utf8'));if(value.schemaVersion!==1||value.mode!=='active')throw Error('Invalid understanding activation file');if(value.sourceSHA256===sourceFingerprint()){persistedMode='active';userRequestedPreview=value.userRequestedPreview===true;}}
@@ -36,7 +36,7 @@ export function createUnderstanding({dataDir,engine,workspace,terminal,external,
     hasActiveWork:()=>Boolean(coordinator?.busy.size)||[...(terminal?.status?.().jobs??[]),...(external?.status?.().jobs??[])].some(j=>['prepared','running','cancelling'].includes(j.status)),
     modelApi:{decodeModel,decodeFeatures,labels:INTENTS,runtime:runtime?.runtime??'compatibility'},
     onModelChange:replaceModel,onPrivacyChange:()=>coordinator?.stop()});
-  coordinator=createCoordinator({engine,workspace,terminal,external,secretary,learning,mode,
+  coordinator=createCoordinator({engine,workspace,terminal,external,secretary,apple,learning,mode,
     features:(text,context)=>encodeFeatures(extractFeatures(text,context)),
     predict:(text,context)=>{
       if(!runtime)return {intent:'other',runtime:'compatibility',modelVersion:0,automaticEnabled:false};

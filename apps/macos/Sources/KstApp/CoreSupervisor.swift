@@ -30,7 +30,17 @@ final class CoreSupervisor: ObservableObject {
         process.executableURL = URL(fileURLWithPath: node)
         process.arguments = [entry]
         process.currentDirectoryURL = URL(fileURLWithPath: entry).deletingLastPathComponent()
-        let allowed = ["HOME", "LANG", "TMPDIR", "PATH", "KST_DATA_DIR", "KST_TOKEN", "KST_PORT", "KST_SECRETARY_DB", "KST_SECRETARY_WRITE", "KST_PROJECTS_FILE", "KST_OPENAI_MODEL", "KST_OPENAI_API_KEY", "KST_CLAUDE_MODEL", "KST_ANTHROPIC_API_KEY", "KST_CODEX_ENABLED", "KST_CODEX_PATH", "KST_CODEX_PROJECT", "KST_UNDERSTANDING_MODE", "KST_UNDERSTANDING_ADDON_PATH"]
+        let allowed = [
+            "HOME", "LANG", "TMPDIR", "PATH",
+            "KST_DATA_DIR", "KST_TOKEN", "KST_PORT",
+            "KST_SECRETARY_DB", "KST_SECRETARY_WRITE", "KST_PROJECTS_FILE",
+            "KST_OPENAI_MODEL", "KST_OPENAI_API_KEY",
+            "KST_CLAUDE_MODEL", "KST_ANTHROPIC_API_KEY",
+            "KST_GEMINI_MODEL", "KST_GEMINI_API_KEY",
+            "KST_CODEX_ENABLED", "KST_CODEX_PATH", "KST_CODEX_PROJECT",
+            "KST_ENABLE_MLX",
+            "KST_UNDERSTANDING_MODE", "KST_UNDERSTANDING_ADDON_PATH"
+        ]
         process.environment = environment.filter { allowed.contains($0.key) }
         if environment["KST_UNDERSTANDING_ADDON_PATH"] == nil,
            let addon = Bundle.main.object(forInfoDictionaryKey: "KSTUnderstandingAddon") as? String,
@@ -40,8 +50,9 @@ final class CoreSupervisor: ObservableObject {
         let bootstrapPipe: Pipe?
         if brokerBootstrap != nil { let pipe = Pipe(); bootstrapPipe = pipe; process.standardInput = pipe }
         else { bootstrapPipe = nil; process.standardInput = FileHandle.nullDevice }
-        process.standardOutput = FileHandle.nullDevice
-        process.standardError = FileHandle.nullDevice
+        let logHandle = Self.openCoreLogHandle()
+        process.standardOutput = logHandle ?? FileHandle.nullDevice
+        process.standardError = logHandle ?? FileHandle.nullDevice
         process.terminationHandler = { [weak self] terminated in
             let exit = terminated.terminationStatus
             Task { @MainActor in
@@ -67,10 +78,52 @@ final class CoreSupervisor: ObservableObject {
         }
     }
 
+    static var coreLogURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Logs/kst-core.log")
+    }
+
     func markHealthy() { status = child?.isRunning == true ? "Local core supervised by kst" : "Attached to an existing local core" }
+
+    func restartCore() {
+        if let child, child.isRunning {
+            child.terminate()
+            child.waitUntilExit()
+        }
+        child = nil
+        launches = 0
+        nextLaunch = 0.0
+        stopping = false
+        ensureRunningIfConfigured()
+    }
+
     func shutdown() {
         stopping = true
         if let child, child.isRunning { child.terminate() }
         child = nil
+    }
+
+    private static func openCoreLogHandle() -> FileHandle? {
+        let fm = FileManager.default
+        let logsDir = coreLogURL.deletingLastPathComponent()
+        try? fm.createDirectory(at: logsDir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        let logURL = coreLogURL
+        if let attrs = try? fm.attributesOfItem(atPath: logURL.path),
+           let size = attrs[.size] as? NSNumber,
+           size.uint64Value > 5 * 1024 * 1024 {
+            let rotatedURL = logsDir.appendingPathComponent("kst-core.log.1")
+            try? fm.removeItem(at: rotatedURL)
+            try? fm.moveItem(at: logURL, to: rotatedURL)
+        }
+        if !fm.fileExists(atPath: logURL.path) {
+            fm.createFile(atPath: logURL.path, contents: nil, attributes: [.posixPermissions: 0o600])
+        }
+        guard let handle = try? FileHandle(forWritingTo: logURL) else { return nil }
+        _ = try? handle.seekToEnd()
+        let banner = "\n=== kst core launch \(ISO8601DateFormatter().string(from: Date())) ===\n"
+        if let data = banner.data(using: .utf8) {
+            try? handle.write(contentsOf: data)
+        }
+        return handle
     }
 }

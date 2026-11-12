@@ -27,7 +27,8 @@ private let dictationHotkeyHandler: EventHandlerUPP = { _, event, context in
 }
 
 /// Owns dictation admission around the same VoiceInput used by the secretary.
-/// It never sends text through the local core, command parser or learning system.
+/// Automatically remembers the most recently active external application so saying
+/// “start typing” while `kst` is visible immediately switches back to your target app and types.
 @MainActor
 final class AudioModeCoordinator: ObservableObject {
     enum State: String {
@@ -35,7 +36,7 @@ final class AudioModeCoordinator: ObservableObject {
         case pausedUser, pausedFocus, pausedPermission, targetUnsupported, deliveryUnknown
     }
     @Published private(set) var state: State = .off
-    @Published private(set) var status = "Dictation off · say “start typing” during assistant listening"
+    @Published private(set) var status = "Dictation ready · say “start typing” or press Control+Option+D"
     @Published private(set) var partial = ""
     @Published private(set) var targetName = ""
     @Published private(set) var modeGeneration = 0
@@ -44,8 +45,8 @@ final class AudioModeCoordinator: ObservableObject {
     @Published private(set) var terminalPermissionNeeded = false
     @Published private(set) var hotkeyRegistered = false
     @Published private(set) var hotkeyDescription = "Control+Option+D"
-    var enabled = false { didSet { if !enabled { stop() } } }
-    var runtimeV2Available = false { didSet { if !runtimeV2Available && active { stop() } } }
+    var enabled = true { didSet { if !enabled { stop() } } }
+    var runtimeV2Available = true
     var onWillStart: (() -> Void)?
     var onStateChanged: (() -> Void)?
     /// Parent uses its existing installed male voice. Complete only after TTS ends.
@@ -65,6 +66,7 @@ final class AudioModeCoordinator: ObservableObject {
     private let lockDirectory: URL
     private var ownership: InstanceLock?
     private var target: DictationTarget?
+    private var lastExternalApp: NSRunningApplication?
     private var overlay: DictationOverlay?
     private var monitor: Task<Void, Never>?
     private var insertion: Task<Void, Never>?
@@ -87,6 +89,10 @@ final class AudioModeCoordinator: ObservableObject {
     init(voice: VoiceInput, directory: URL? = nil) {
         self.voice = voice
         lockDirectory = (directory ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/kst-dev/native")).appendingPathComponent("dictation")
+        if let front = NSWorkspace.shared.frontmostApplication,
+           front.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+            lastExternalApp = front
+        }
         voice.onDictationFinal = { [weak self] text in self?.acceptFinal(text) }
         voice.onDictationFailure = { [weak self] message in
             guard let self else { return }
@@ -99,7 +105,7 @@ final class AudioModeCoordinator: ObservableObject {
         }
         voice.onDictationPhase = { [weak self] phase in
             guard let self, self.active else { return }
-            if phase == "dictating" { self.change(.dictating, "Listening · \(self.targetName)") }
+            if phase == "dictating" { self.change(.dictating, "Listening · typing into \(self.targetName)") }
             else if phase == "finalizing" { self.change(.finalizing, "Finishing speech · microphone paused") }
             else { self.change(.inserting, "Typing final text · microphone paused") }
         }
@@ -107,8 +113,15 @@ final class AudioModeCoordinator: ObservableObject {
             guard let self, self.active, self.voice.mode == .dictation else { return }
             self.partial = text; self.updateOverlay()
         }
-        observations.append(NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
-            Task { @MainActor in self?.recheckTarget() }
+        observations.append(NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] note in
+            let activated = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            Task { @MainActor in
+                guard let self else { return }
+                if let activated, activated.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+                    self.lastExternalApp = activated
+                }
+                self.recheckTarget()
+            }
         })
         for name in [NSWorkspace.willSleepNotification, NSWorkspace.sessionDidResignActiveNotification] {
             observations.append(NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
@@ -120,7 +133,6 @@ final class AudioModeCoordinator: ObservableObject {
         })
     }
 
-    /// Registration does not capture microphone audio or prompt for permissions.
     func registerHotkey(keyCode requestedCode: UInt32? = nil, modifiers requestedModifiers: UInt32? = nil) {
         let preferences = UserDefaults.standard
         let keyCode = requestedCode ?? (preferences.object(forKey: "dictation.hotkey.code") as? NSNumber)?.uint32Value ?? UInt32(kVK_ANSI_D)
@@ -144,6 +156,7 @@ final class AudioModeCoordinator: ObservableObject {
         }
         if !hotkeyRegistered { status = "Dictation shortcut is in use. Choose another shortcut or use the status menu." }
     }
+
     func shutdown() {
         stop()
         if let hotkey { UnregisterEventHotKey(hotkey); self.hotkey = nil }
@@ -154,15 +167,16 @@ final class AudioModeCoordinator: ObservableObject {
         }
         observations.removeAll(); ownership = nil
     }
+
     func toggle() {
         switch state {
         case .dictating, .finalizing, .inserting, .targeting: stop()
         default: start()
         }
     }
+
     func start(initialText: String? = nil) {
-        guard enabled else { status = "Enable dictation in kst first."; onStateChanged?(); return }
-        guard runtimeV2Available else { status = "The connected core needs runtime-state v2 before dictation can start."; onStateChanged?(); return }
+        enabled = true
         stop()
         pendingInitialText = initialText
         onWillStart?()
@@ -172,7 +186,7 @@ final class AudioModeCoordinator: ObservableObject {
         guard AXIsProcessTrusted() else {
             let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
             _ = AXIsProcessTrustedWithOptions(options as CFDictionary)
-            pause(.pausedPermission, message: "Enable Accessibility for kst in System Settings. Refocus your field and press the hotkey again.")
+            pause(.pausedPermission, message: "Enable Accessibility for kst in System Settings > Privacy & Security > Accessibility, then say “start typing” again.")
             return
         }
         guard VoiceInput.dictationPermissionsReady else {
@@ -182,7 +196,7 @@ final class AudioModeCoordinator: ObservableObject {
         }
         do {
             if ownership == nil { ownership = try InstanceLock(directory: lockDirectory) }
-            target = try DictationTarget.capture()
+            target = try DictationTarget.capture(preferredApp: lastExternalApp)
             guard let target else { return }
             targetName = target.appName
             if target.terminal {
@@ -206,7 +220,7 @@ final class AudioModeCoordinator: ObservableObject {
                 return
             }
             terminalAcknowledgmentNeeded = target.terminal
-            replacementAcknowledgmentNeeded = target.expectedRange.length != 0
+            replacementAcknowledgmentNeeded = target.rangeTrackable && target.expectedRange.length != 0
             if terminalAcknowledgmentNeeded || replacementAcknowledgmentNeeded {
                 change(.targeting, terminalAcknowledgmentNeeded ? "Confirm this terminal is at the intended text prompt. Enter is never emitted." : "Selected text will be replaced. Confirm this target.")
                 return
@@ -214,6 +228,7 @@ final class AudioModeCoordinator: ObservableObject {
             begin(generation: generation)
         } catch { pause(.targetUnsupported, message: error.localizedDescription) }
     }
+
     func acknowledgeTargetAndStart() {
         guard state == .targeting, let target, target.valid(), terminalAcknowledgmentNeeded || replacementAcknowledgmentNeeded else {
             pause(.pausedFocus, message: "Target changed. Refocus your field and start again."); return
@@ -221,6 +236,7 @@ final class AudioModeCoordinator: ObservableObject {
         terminalAcknowledgmentNeeded = false; replacementAcknowledgmentNeeded = false
         begin(generation: modeGeneration)
     }
+
     private func begin(generation: Int) {
         guard modeGeneration == generation, let target, target.valid() else {
             pause(.pausedFocus, message: "Target changed. Refocus your field and start again."); return
@@ -230,11 +246,11 @@ final class AudioModeCoordinator: ObservableObject {
         let completion: () -> Void = { [weak self] in
             guard let self, self.modeGeneration == generation else { return }
             self.acknowledgmentTimeout?.cancel(); self.acknowledgmentTimeout = nil
-            guard let target = self.target, target.valid() else { self.pause(.pausedFocus, message: "Target changed during acknowledgment. Refocus and start again."); return }
+            guard let target = self.target, target.valid(checkRange: false) else { self.pause(.pausedFocus, message: "Target changed during acknowledgment. Refocus and start again."); return }
             Task { @MainActor [weak self] in
                 let paneValid = await target.terminalValid()
                 guard let self, self.modeGeneration == generation else { return }
-                guard paneValid, target.valid() else { self.pause(.pausedFocus, message: "Target or terminal prompt changed during acknowledgment. Re-arm at the intended field."); return }
+                guard paneValid, target.valid(checkRange: false) else { self.pause(.pausedFocus, message: "Target or terminal prompt changed during acknowledgment. Re-arm at the intended field."); return }
                 if let initialText = self.pendingInitialText {
                     self.pendingInitialText = nil
                     self.resumeAfterInitialInsert = true
@@ -246,16 +262,18 @@ final class AudioModeCoordinator: ObservableObject {
             }
         }
         guard let acknowledgeTarget else {
-            pause(.pausedUser, message: "Dictation target acknowledgment is unavailable. Restart kst and try again."); return
+            completion()
+            return
         }
         acknowledgmentTimeout?.cancel()
         acknowledgmentTimeout = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(10))
+            try? await Task.sleep(for: .seconds(6))
             guard !Task.isCancelled, let self, self.modeGeneration == generation else { return }
-            self.pause(.pausedUser, message: "Target acknowledgment did not complete. Microphone remains off; start again.")
+            completion()
         }
         acknowledgeTarget("Dictating into \(target.appName).", completion)
     }
+
     func stop() {
         modeGeneration += 1
         if voice.mode == .dictation { voice.close() }
@@ -268,13 +286,15 @@ final class AudioModeCoordinator: ObservableObject {
         target = nil; partial = ""; lastText = nil; receipts.removeAll()
         pendingInitialText = nil; resumeAfterInitialInsert = false
         terminalAcknowledgmentNeeded = false; replacementAcknowledgmentNeeded = false; terminalPermissionNeeded = false
-        state = .off; status = "Dictation off · say “start typing” during assistant listening · optional \(hotkeyDescription)"; targetName = ""
+        state = .off; status = "Dictation ready · say “start typing” or press \(hotkeyDescription)"; targetName = ""
         overlay?.close(); overlay = nil
         onStateChanged?()
     }
+
     private func change(_ state: State, _ status: String) {
         self.state = state; self.status = status; updateOverlay(); onStateChanged?()
     }
+
     private func updateOverlay() {
         if state == .targeting && target == nil { return }
         if active && overlay == nil {
@@ -287,6 +307,7 @@ final class AudioModeCoordinator: ObservableObject {
         }
         overlay?.update(status: status, partial: partial, acknowledge: terminalAcknowledgmentNeeded || replacementAcknowledgmentNeeded, terminalPermission: terminalPermissionNeeded)
     }
+
     func requestTerminalPermission() {
         guard terminalPermissionNeeded else { return }
         terminalPermissionNeeded = false
@@ -298,22 +319,29 @@ final class AudioModeCoordinator: ObservableObject {
             self.onStateChanged?()
         }
     }
+
     private func clearFocusObserver() {
         if let focusObserver { CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(focusObserver), .commonModes) }
         focusObserver = nil; observerReliable = false
     }
+
     fileprivate func focusEvent() {
-        guard [.dictating, .finalizing, .inserting].contains(state) else { return }
-        pause(state == .inserting ? .deliveryUnknown : .pausedFocus, message: "Focused app/window/field changed. Dictation paused; no remaining text will be replayed.")
-    }
-    fileprivate func recheckTarget() {
         guard [.dictating, .finalizing, .inserting].contains(state), let target else { return }
-        guard VoiceInput.dictationPermissionsReady, AXIsProcessTrusted() else { pause(.pausedPermission, message: "Permission lost. Dictation paused; re-arm after enabling access."); return }
-        guard target.valid(checkRange: state != .inserting) else {
-            pause(state == .inserting ? .deliveryUnknown : .pausedFocus, message: state == .inserting ? "Delivery uncertain. Remaining text cancelled; nothing will be replayed." : "Focus or caret changed. Dictation paused. Refocus and press the hotkey to re-arm.")
+        guard target.valid(checkRange: false) else {
+            pause(state == .inserting ? .deliveryUnknown : .pausedFocus, message: "Focused app changed. Dictation paused.")
             return
         }
     }
+
+    fileprivate func recheckTarget() {
+        guard [.dictating, .finalizing, .inserting].contains(state), let target else { return }
+        guard VoiceInput.dictationPermissionsReady, AXIsProcessTrusted() else { pause(.pausedPermission, message: "Permission lost. Dictation paused; re-arm after enabling access."); return }
+        guard target.valid(checkRange: false) else {
+            pause(state == .inserting ? .deliveryUnknown : .pausedFocus, message: "Focused app changed. Dictation paused.")
+            return
+        }
+    }
+
     private func startMonitor() {
         clearFocusObserver()
         if let target {
@@ -324,10 +352,14 @@ final class AudioModeCoordinator: ObservableObject {
                 for notification in [kAXFocusedUIElementChangedNotification, kAXFocusedWindowChangedNotification] {
                     if AXObserverAddNotification(observer, app, notification as CFString, Unmanaged.passUnretained(self).toOpaque()) != .success { reliable = false }
                 }
-                for notification in [kAXSelectedTextChangedNotification, kAXValueChangedNotification] {
-                    if AXObserverAddNotification(observer, target.element, notification as CFString, Unmanaged.passUnretained(self).toOpaque()) != .success { reliable = false }
+                if let el = target.element {
+                    for notification in [kAXSelectedTextChangedNotification, kAXValueChangedNotification] {
+                        if AXObserverAddNotification(observer, el, notification as CFString, Unmanaged.passUnretained(self).toOpaque()) != .success { reliable = false }
+                    }
                 }
-                if AXObserverAddNotification(observer, target.window, kAXTitleChangedNotification as CFString, Unmanaged.passUnretained(self).toOpaque()) != .success { reliable = false }
+                if let win = target.window {
+                    if AXObserverAddNotification(observer, win, kAXTitleChangedNotification as CFString, Unmanaged.passUnretained(self).toOpaque()) != .success { reliable = false }
+                }
                 observerReliable = reliable
                 CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .commonModes)
                 focusObserver = observer
@@ -336,7 +368,7 @@ final class AudioModeCoordinator: ObservableObject {
         monitor?.cancel()
         monitor = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(200))
+                try? await Task.sleep(for: .milliseconds(300))
                 guard let self, !Task.isCancelled, self.active, let target = self.target else { return }
                 guard VoiceInput.dictationPermissionsReady, AXIsProcessTrusted() else { self.pause(.pausedPermission, message: "Permission lost. Dictation paused; re-arm after enabling access."); return }
                 if target.terminal {
@@ -345,13 +377,14 @@ final class AudioModeCoordinator: ObservableObject {
                     guard self.modeGeneration == generation, !Task.isCancelled else { return }
                     guard paneValid else { self.pause(self.state == .inserting ? .deliveryUnknown : .pausedFocus, message: "Terminal pane or prompt changed. Dictation paused; no remaining text is replayed."); return }
                 }
-                guard self.observerReliable || target.valid(checkRange: self.state != .inserting) else {
-                    self.pause(self.state == .inserting ? .deliveryUnknown : .pausedFocus, message: self.state == .inserting ? "Delivery uncertain. Remaining text cancelled; nothing will be replayed." : "Focus or caret changed. Dictation paused. Refocus and press the hotkey to re-arm.")
+                guard target.valid(checkRange: false) else {
+                    self.pause(self.state == .inserting ? .deliveryUnknown : .pausedFocus, message: "Focused app changed. Dictation paused.")
                     return
                 }
             }
         }
     }
+
     private func pause(_ next: State, message: String) {
         modeGeneration += 1
         if voice.mode == .dictation { voice.close() }
@@ -369,12 +402,13 @@ final class AudioModeCoordinator: ObservableObject {
             self.partial = ""; self.updateOverlay()
         }
     }
+
     func copyPending() {
         guard !partial.isEmpty else { return }
-        // Explicit Copy replaces clipboard contents. There is no paste/restore path.
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(partial, forType: .string)
     }
+
     private func acceptFinal(_ text: String) {
         guard active, let target else { return }
         partial = String(text.prefix(4096))
@@ -387,7 +421,7 @@ final class AudioModeCoordinator: ObservableObject {
                 guard let last = receipts.last, injector.deleteLast(last, target: target) else { pause(.pausedUser, message: "Last insertion is no longer verifiable. Edit manually."); return }
                 receipts.removeLast(); lastText = nil; partial = ""; voice.resume()
             case .text(let recognized):
-                guard !recognized.isEmpty, target.valid() else { pause(.pausedFocus, message: "Focus or caret changed. Text was not inserted."); return }
+                guard !recognized.isEmpty, target.valid(checkRange: false) else { pause(.pausedFocus, message: "Focus changed. Text was not inserted."); return }
                 let payload = DictationPolicy.payload(recognized, after: lastText)
                 let generation = modeGeneration
                 turn += 1; let segmentID = "\(sessionID):\(turn):1"

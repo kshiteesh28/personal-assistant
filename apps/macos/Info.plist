@@ -6,13 +6,16 @@
   <key>CFBundleDisplayName</key><string>kst</string>
   <key>CFBundleExecutable</key><string>kst</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>0.6.0</string>
-  <key>CFBundleVersion</key><string>17</string>
+  <key>CFBundleShortVersionString</key><string>0.8.0</string>
+  <key>CFBundleVersion</key><string>19</string>
   <key>CFBundleIconFile</key><string>kst</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>KSTReleaseChannel</key><string>preview.1</string>
   <key>NSHighResolutionCapable</key><true/>
-  <key>NSAppleEventsUsageDescription</key><string>kst reads only the active iTerm pane identity and shell-prompt status after you request terminal dictation. It never sends terminal commands through Automation.</string>
-  <key>NSMicrophoneUsageDescription</key><string>kst listens only after Start listening, Arm wake phrase or an explicit dictation shortcut/action, using on-device recognition for requests and typing into supported focused fields.</string>
-  <key>NSSpeechRecognitionUsageDescription</key><string>kst uses on-device Apple speech recognition for spoken requests and explicit dictation into supported focused fields. Online recognition is disabled.</string>
+  <key>NSAppleEventsUsageDescription</key><string>kst uses Apple Events to integrate with Apple Mail, Messages, Notes, Safari, Music, and to verify active iTerm pane prompts when you request terminal dictation. Outbound messages always require your confirmation.</string>
+  <key>NSCalendarsFullAccessUsageDescription</key><string>kst reads and updates your Apple Calendar events locally so you can check availability, schedule meetings, and receive proactive meeting nudges.</string>
+  <key>NSRemindersFullAccessUsageDescription</key><string>kst creates, completes, and reschedules reminders in Apple Reminders so your reminders stay in sync across your Mac, iPhone, and Apple Watch.</string>
+  <key>NSContactsUsageDescription</key><string>kst resolves contact names to email addresses and phone numbers locally on your Mac when you schedule meetings, draft emails, or stage iMessages.</string>
+  <key>NSMicrophoneUsageDescription</key><string>kst listens only after Start listening, Arm wake phrase or an explicit dictation shortcut/action, using on-device recognition with hardware echo cancellation for full-duplex conversation and dictation.</string>
+  <key>NSSpeechRecognitionUsageDescription</key><string>kst uses on-device Apple speech recognition for spoken requests, full-duplex barge-in, and explicit dictation into supported focused fields. Online recognition is disabled.</string>
 </dict></plist>

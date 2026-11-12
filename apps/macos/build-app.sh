@@ -5,7 +5,12 @@ package_dir="$(cd -- "$(dirname -- "$0")" && pwd)"
 repo_dir="$(cd -- "$package_dir/../.." && pwd)"
 app_dir="$package_dir/build/kst.app"
 
-node "$repo_dir/packages/kst-core/native/understanding/build.mjs"
+export PATH="/Users/kshiteesh/.local/node/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
+export KST_ENABLE_MLX="${KST_ENABLE_MLX:-0}"
+codesign_identity="${KST_CODESIGN_IDENTITY:--}"
+
+node_path="$(command -v node)"
+"$node_path" "$repo_dir/packages/kst-core/native/understanding/build.mjs"
 
 # SwiftPM's manifest sandbox cannot be nested inside some coding-agent sandboxes.
 # This flag affects the compiler build, not the installed app's permissions.
@@ -16,9 +21,8 @@ mkdir -p "$app_dir/Contents/MacOS" "$app_dir/Contents/Resources"
 cp "$package_dir/.build/$build_configuration/kst" "$app_dir/Contents/MacOS/kst"
 cp "$package_dir/Info.plist" "$app_dir/Contents/Info.plist"
 cp "$repo_dir/packages/kst-core/native/understanding/build/understanding.node" "$app_dir/Contents/Resources/understanding.node"
-codesign --force --sign - "$app_dir/Contents/Resources/understanding.node"
+codesign --force --sign "$codesign_identity" "$app_dir/Contents/Resources/understanding.node"
 plutil -replace KSTUnderstandingAddon -string "understanding.node" "$app_dir/Contents/Info.plist"
-node_path="$(command -v node)"
 plutil -replace KSTCoreEntry -string "$repo_dir/packages/kst-core/src/server.mjs" "$app_dir/Contents/Info.plist"
 plutil -replace KSTNodePath -string "$node_path" "$app_dir/Contents/Info.plist"
 if [ -f "$repo_dir/assets/kst/kst-logo.png" ]; then
@@ -35,9 +39,9 @@ if [ -f "$repo_dir/assets/kst/kst-logo.png" ]; then
   done
   if ! iconutil -c icns "$iconset_dir" -o "$app_dir/Contents/Resources/kst.icns"; then
     printf 'iconutil unavailable; using deterministic PNG-backed ICNS packaging.\n'
-    node "$package_dir/make-icon.mjs" "$iconset_dir" "$app_dir/Contents/Resources/kst.icns"
+    "$node_path" "$package_dir/make-icon.mjs" "$iconset_dir" "$app_dir/Contents/Resources/kst.icns"
   fi
 fi
-codesign --force --sign - "$app_dir"
+codesign --force --sign "$codesign_identity" "$app_dir"
 codesign --verify "$app_dir"
-printf 'Built %s\n' "$app_dir"
+printf 'Built %s (0.8.0-preview.1, KST_ENABLE_MLX=%s)\n' "$app_dir" "$KST_ENABLE_MLX"
